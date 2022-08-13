@@ -1,5 +1,10 @@
 const std = @import("std");
 
+const astutil_pkg = std.build.Pkg{
+    .name = "astutil",
+    .source = .{ .path = "pkgs/astutil.main.zig" },
+};
+
 pub fn build(b: *std.build.Builder) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -15,6 +20,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
+    exe.addPackage(astutil_pkg);
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());

@@ -10,6 +10,14 @@
             "problemMatcher": [
                 "$gcc"
             ]
-        }
+        },
+        {
+            "label": "test astutil",
+            "type": "shell",
+            "command": "zig test pkgs/astutil/src/main.zig",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
     ]
 }
