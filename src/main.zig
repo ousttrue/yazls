@@ -1,7 +1,7 @@
 const std = @import("std");
-const Stdio = @import("./Stdio.zig");
-const Dispatcher = @import("./Dispatcher.zig");
-const jsonrpc = @import("./jsonrpc.zig");
+const jsonrpc = @import("jsonrpc");
+const Stdio = jsonrpc.Stdio;
+const Dispatcher = jsonrpc.Dispatcher;
 const logger = std.log.scoped(.main);
 
 var transport: Stdio = undefined;

@@ -5,6 +5,11 @@ const astutil_pkg = std.build.Pkg{
     .source = .{ .path = "pkgs/astutil/src/main.zig" },
 };
 
+const jsonrpc_pkg = std.build.Pkg{
+    .name = "jsonrpc",
+    .source = .{ .path = "pkgs/jsonrpc/src/main.zig" },
+};
+
 pub fn build(b: *std.build.Builder) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -21,6 +26,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.setBuildMode(mode);
     exe.install();
     exe.addPackage(astutil_pkg);
+    exe.addPackage(jsonrpc_pkg);
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());
