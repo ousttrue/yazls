@@ -40,23 +40,27 @@ pub fn deinit(self: *Self) void {
 
 pub fn registerRequest(
     self: *Self,
-    ls: anytype,
+    ptr: anytype,
     comptime method: []const u8,
 ) void {
+    const PT = @TypeOf(ptr);
+    const T = @typeInfo(PT).Pointer.child;
     self.request_map.put(method, RequestFunctor{
-        .ls = ls,
-        .proto = TypeErasure(ls, method).call,
+        .ptr = ptr,
+        .proto = TypeErasure(T, method).call,
     }) catch @panic("put");
 }
 
-pub fn registerNotify(
+pub fn registerNotification(
     self: *Self,
-    ls: anytype,
+    ptr: anytype,
     comptime method: []const u8,
 ) void {
+    const PT = @TypeOf(ptr);
+    const T = @typeInfo(PT).Pointer.child;
     self.notify_map.put(method, NotifyFunctor{
-        .ls = ls,
-        .proto = TypeErasure(ls, method).call,
+        .ptr = ptr,
+        .proto = TypeErasure(T, method).call,
     }) catch @panic("put");
 }
 

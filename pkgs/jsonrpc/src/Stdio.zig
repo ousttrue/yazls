@@ -28,7 +28,7 @@ pub fn deinit(self: Self) void {
     self.json_buffer.deinit();
 }
 
-pub fn sendLogMessage(self: *Self, allocator: std.mem.Allocator, message_level: i32, message: []const u8) void {
+pub fn sendLogMessage(self: *Self, allocator: std.mem.Allocator, message_level: std.log.Level, message: []const u8) void {
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#messageType
     var buffer = std.ArrayList(u8).init(allocator);
     defer buffer.deinit();
@@ -47,7 +47,12 @@ pub fn sendLogMessage(self: *Self, allocator: std.mem.Allocator, message_level: 
             defer w.endObject() catch unreachable;
 
             w.objectField("type") catch unreachable;
-            w.emitNumber(message_level) catch unreachable;
+            w.emitNumber(switch (message_level) {
+                .debug => @as(i64, 4),
+                .info => @as(i64, 3),
+                .warn => @as(i64, 2),
+                .err => @as(i64, 1),
+            }) catch unreachable;
 
             w.objectField("message") catch unreachable;
             w.emitString(message) catch unreachable;

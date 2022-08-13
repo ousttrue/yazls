@@ -1,10 +1,9 @@
 const std = @import("std");
 const jsonrpc = @import("jsonrpc");
-const Stdio = jsonrpc.Stdio;
-const Dispatcher = jsonrpc.Dispatcher;
+const ls = @import("language_server");
 const logger = std.log.scoped(.main);
 
-var transport: Stdio = undefined;
+var transport: jsonrpc.Stdio = undefined;
 
 pub var keep_running = true;
 
@@ -27,12 +26,7 @@ pub fn log(
     };
     defer allocator.free(message);
 
-    transport.sendLogMessage(allocator, switch (message_level) {
-        .debug => 4,
-        .info => 3,
-        .warn => 2,
-        .err => 1,
-    }, message);
+    transport.sendLogMessage(allocator, message_level, message);
 }
 
 pub fn main() anyerror!void {
@@ -40,11 +34,18 @@ pub fn main() anyerror!void {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    transport = Stdio.init(allocator);
+    transport = jsonrpc.Stdio.init(allocator);
     logger.info("######## [YAZLS] ########", .{});
 
-    var dispatcher = Dispatcher.init(allocator);
+    var dispatcher = jsonrpc.Dispatcher.init(allocator);
     defer dispatcher.deinit();
+
+    var zigenv = try ls.ZigEnv.init(allocator);
+
+    var language_server = ls.LanguageServer.init(allocator, zigenv);
+    dispatcher.registerRequest(&language_server, "initialize");
+    dispatcher.registerNotification(&language_server, "initialized");
+    dispatcher.registerRequest(&language_server, "shutdown");
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

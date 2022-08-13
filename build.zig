@@ -10,6 +10,17 @@ const jsonrpc_pkg = std.build.Pkg{
     .source = .{ .path = "pkgs/jsonrpc/src/main.zig" },
 };
 
+const lsp_pkg = std.build.Pkg{
+    .name = "language_server_protocol",
+    .source = .{ .path = "pkgs/language_server_protocol/src/main.zig" },
+};
+
+const ls_pkg = std.build.Pkg{
+    .name = "language_server",
+    .source = .{ .path = "pkgs/language_server/src/main.zig" },
+    .dependencies = &.{lsp_pkg, astutil_pkg},
+};
+
 pub fn build(b: *std.build.Builder) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -27,6 +38,8 @@ pub fn build(b: *std.build.Builder) void {
     exe.install();
     exe.addPackage(astutil_pkg);
     exe.addPackage(jsonrpc_pkg);
+    exe.addPackage(ls_pkg);
+    b.installFile("install/build_runner.zig", "bin/build_runner.zig");
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());

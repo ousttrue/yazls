@@ -5,23 +5,25 @@ Yet another zig language server.
 
 zls の zls.exe のみを置き換えて使います。
 
-## TODO
-
-* [ ] 0.1: 改造版の zls を移植するところまで
-
 ## vscode の設定
 
 ```json:settings.json
 "zls.path": "PATH_TO_HERE/zig-out/bin/yazls.exe",
 ```
 
-## 新機能(予定)
+# TODO
 
-* @cImport に対する処理
-* pkg マップのロード(project root から適当な json をロードする)
-* gyro.zzz から pkg マップをロード
+* [ ] 0.1: 改造版の zls を移植するところまで
 
-## 実装メモ
+|                                  | zls | yazls |
+|----------------------------------|-----|-------|
+| initialize                       | ✅   | ✅     |
+| initialized                      |     | ✅     |
+| shutdown                         | ✅   | ✅     |
+| @cImport                         |     |       |
+| gyro.zzz から pkg マップをロード |     |       |
+
+# 実装メモ
 
 `std.zig.parse` から `std.zig.Ast` を得られる。
 この Ast 内で identifier Token の symbol 名の解決ができる。

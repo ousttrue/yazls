@@ -19,5 +19,24 @@
                 "$gcc"
             ]
         },
+        {
+            "label": "build runner",
+            "type": "shell",
+            "command": [
+                "zig",
+                "run",
+                "install/build_runner.zig",
+                "--pkg-begin",
+                "@build@",
+                "build.zig",
+                "--pkg-end",
+                "--",
+                "zig.exe",
+                ".",
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
     ]
 }

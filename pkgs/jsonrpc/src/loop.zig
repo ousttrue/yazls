@@ -1,6 +1,4 @@
 const std = @import("std");
-const lsp = @import("lsp");
-const ws = @import("workspace");
 const root = @import("root");
 const Dispatcher = @import("./Dispatcher.zig");
 const Stdio = @import("./Stdio.zig");
