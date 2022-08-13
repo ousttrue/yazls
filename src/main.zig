@@ -1,10 +1,12 @@
 const std = @import("std");
 const Stdio = @import("./Stdio.zig");
+const Dispatcher = @import("./Dispatcher.zig");
+const jsonrpc = @import("./jsonrpc.zig");
 const logger = std.log.scoped(.main);
 
 var transport: Stdio = undefined;
 
-var keep_running = true;
+pub var keep_running = true;
 
 pub fn log(
     comptime message_level: std.log.Level,
@@ -25,37 +27,12 @@ pub fn log(
     };
     defer allocator.free(message);
 
-    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#messageType
-    var buffer = std.ArrayList(u8).init(allocator);
-    defer buffer.deinit();
-
-    var w = std.json.writeStream(buffer.writer(), 10);
-    {
-        w.beginObject() catch unreachable;
-        defer w.endObject() catch unreachable;
-
-        w.objectField("method") catch unreachable;
-        w.emitString("window/logMessage") catch unreachable;
-
-        w.objectField("params") catch unreachable;
-        {
-            w.beginObject() catch unreachable;
-            defer w.endObject() catch unreachable;
-
-            w.objectField("type") catch unreachable;
-            w.emitNumber(switch (message_level) {
-                .debug => 4,
-                .info => 3,
-                .warn => 2,
-                .err => 1,
-            }) catch unreachable;
-
-            w.objectField("message") catch unreachable;
-            w.emitString(message) catch unreachable;
-        }
-    }
-
-    transport.send(buffer.items);
+    transport.sendLogMessage(allocator, switch (message_level) {
+        .debug => 4,
+        .info => 3,
+        .warn => 2,
+        .err => 1,
+    }, message);
 }
 
 pub fn main() anyerror!void {
@@ -65,4 +42,9 @@ pub fn main() anyerror!void {
 
     transport = Stdio.init(allocator);
     logger.info("######## [YAZLS] ########", .{});
+
+    var dispatcher = Dispatcher.init(allocator);
+    defer dispatcher.deinit();
+
+    jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

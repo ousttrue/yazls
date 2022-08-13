@@ -1,4 +1,5 @@
 const std = @import("std");
+const JsonRpcError = @import("./jsonrpc_error.zig").JsonRpcError;
 const Self = @This();
 
 const CONTENT_LENGTH = "Content-Length: ";
@@ -27,7 +28,82 @@ pub fn deinit(self: Self) void {
     self.json_buffer.deinit();
 }
 
-pub fn send(self: *Self, value: []const u8) void {
+pub fn sendLogMessage(self: *Self, allocator: std.mem.Allocator, message_level: i32, message: []const u8) void {
+    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#messageType
+    var buffer = std.ArrayList(u8).init(allocator);
+    defer buffer.deinit();
+
+    var w = std.json.writeStream(buffer.writer(), 10);
+    {
+        w.beginObject() catch unreachable;
+        defer w.endObject() catch unreachable;
+
+        w.objectField("method") catch unreachable;
+        w.emitString("window/logMessage") catch unreachable;
+
+        w.objectField("params") catch unreachable;
+        {
+            w.beginObject() catch unreachable;
+            defer w.endObject() catch unreachable;
+
+            w.objectField("type") catch unreachable;
+            w.emitNumber(message_level) catch unreachable;
+
+            w.objectField("message") catch unreachable;
+            w.emitString(message) catch unreachable;
+        }
+    }
+
+    self.sendRpcBody(buffer.items);
+}
+
+pub fn sendErrorResponse(
+    self: *Self,
+    allocator: std.mem.Allocator,
+    id: ?i64,
+    err: JsonRpcError,
+    message: ?[]const u8,
+) void {
+    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#responseMessage
+    var buffer = std.ArrayList(u8).init(allocator);
+    defer buffer.deinit();
+    var w = std.json.writeStream(buffer.writer(), 10);
+    {
+        w.beginObject() catch unreachable;
+        defer w.endObject() catch unreachable;
+
+        if (id) |value| {
+            w.objectField("id") catch unreachable;
+            w.emitNumber(value) catch unreachable;
+        }
+
+        w.objectField("error") catch unreachable;
+        {
+            w.beginObject() catch unreachable;
+            defer w.endObject() catch unreachable;
+
+            w.objectField("code") catch unreachable;
+            w.emitNumber(switch (err) {
+                JsonRpcError.ParseError => @as(i64, -32700),
+                JsonRpcError.InvalidRequest => @as(i64, -32600),
+                JsonRpcError.MethodNotFound => @as(i64, -32601),
+                JsonRpcError.InvalidParams => @as(i64, -32602),
+                JsonRpcError.InternalError => @as(i64, -32603),
+            }) catch unreachable;
+
+            w.objectField("message") catch unreachable;
+            if (message) |text| {
+                w.emitString(text) catch unreachable;
+            } else {
+                w.emitString(@errorName(err)) catch unreachable;
+            }
+        }
+    }
+
+    self.sendRpcBody(buffer.items);
+}
+
+pub fn sendRpcBody(self: *Self, value: []const u8) void {
     const stdout_stream = self.writer.writer();
     stdout_stream.print("Content-Length: {}\r\n\r\n", .{value.len}) catch @panic("send");
     stdout_stream.writeAll(value) catch @panic("send");
