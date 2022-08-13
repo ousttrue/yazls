@@ -2,7 +2,7 @@ const std = @import("std");
 
 const astutil_pkg = std.build.Pkg{
     .name = "astutil",
-    .source = .{ .path = "pkgs/astutil.main.zig" },
+    .source = .{ .path = "pkgs/astutil/src/main.zig" },
 };
 
 pub fn build(b: *std.build.Builder) void {
