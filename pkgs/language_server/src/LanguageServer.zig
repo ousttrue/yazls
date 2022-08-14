@@ -13,7 +13,7 @@ const Project = astutil.Project;
 const Document = astutil.Document;
 
 const Diagnostic = @import("./Diagnostic.zig");
-
+const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 
 // const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 // const AstNodeIterator = astutil.AstNodeIterator;
@@ -92,6 +92,25 @@ pub fn initialize(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonPar
             self.encoding = .utf8;
         }
     }
+
+    // semantic token
+    self.server_capabilities.semanticTokensProvider.?.legend.tokenTypes = block: {
+                const tokTypeFields = std.meta.fields(semantic_tokens.SemanticTokenType);
+                var names: [tokTypeFields.len][]const u8 = undefined;
+                inline for (tokTypeFields) |field, i| {
+                    names[i] = field.name;
+                }
+                break :block &names;
+            };
+    self.server_capabilities.semanticTokensProvider.?.legend.tokenModifiers = block: {
+                const tokModFields = std.meta.fields(semantic_tokens.SemanticTokenModifiers);
+                var names: [tokModFields.len][]const u8 = undefined;
+                inline for (tokModFields) |field, i| {
+                    names[i] = field.name;
+                }
+                break :block &names;
+            };
+
 
     // if (params.capabilities.textDocument) |textDocument| {
     //     self.client_capabilities.supports_semantic_tokens = textDocument.semanticTokens.exists;
@@ -274,66 +293,55 @@ pub fn @"textDocument/didClose"(self: *Self, arena: *std.heap.ArenaAllocator, js
 //     return res;
 // }
 
-// /// # language feature
-// /// ## document request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
-// pub fn @"textDocument/semanticTokens/full"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     if (!self.config.enable_semantic_tokens) {
-//         return lsp.Response{
-//             .id = id,
-//             .result = lsp.ResponseParams{ .SemanticTokensFull = .{
-//                 .data = &.{},
-//             } },
-//         };
-//     }
+/// # language feature
+/// ## document request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
+pub fn @"textDocument/semanticTokens/full"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.types.TextDocumentIdentifierRequest, jsonParams.?);
+    const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
 
-//     const params = try lsp.fromDynamicTree(arena, lsp.requests.SemanticTokensFull, jsonParams.?);
-//     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+    var token_array = try SemanticTokensBuilder.writeAllSemanticTokens(arena, doc);
+    var array = try std.ArrayList(u32).initCapacity(arena.allocator(), token_array.len * 5);
+    for (token_array) |token| {
+        const start = try doc.utf8_buffer.getPositionFromBytePosition(token.start, self.encoding);
 
-//     var token_array = try SemanticTokensBuilder.writeAllSemanticTokens(arena, doc);
-//     var array = try std.ArrayList(u32).initCapacity(arena.allocator(), token_array.len * 5);
-//     for (token_array) |token| {
-//         const start = try doc.utf8_buffer.getPositionFromBytePosition(token.start, self.encoding);
+        var p = token.start;
+        var i: u32 = 0;
+        while (p < token.end) {
+            const len = try std.unicode.utf8ByteSequenceLength(doc.utf8_buffer.text[p]);
+            p += len;
+            i += 1;
+        }
 
-//         var p = token.start;
-//         var i: u32 = 0;
-//         while (p < token.end) {
-//             const len = try std.unicode.utf8ByteSequenceLength(doc.utf8_buffer.text[p]);
-//             p += len;
-//             i += 1;
-//         }
+        try array.appendSlice(&.{
+            start.line,
+            start.x,
+            @intCast(u32, if (self.encoding == .utf8) token.end - token.start else i),
+            @enumToInt(token.token_type),
+            token.token_modifiers.toInt(),
+        });
+    }
+    // convert to delta
+    var data = array.items;
+    {
+        var prev_line: u32 = 0;
+        var prev_character: u32 = 0;
+        var i: u32 = 0;
+        while (i < data.len) : (i += 5) {
+            const current_line = data[i];
+            const current_character = data[i + 1];
 
-//         try array.appendSlice(&.{
-//             start.line,
-//             start.x,
-//             @intCast(u32, if (self.encoding == .utf8) token.end - token.start else i),
-//             @enumToInt(token.token_type),
-//             token.token_modifiers.toInt(),
-//         });
-//     }
-//     // convert to delta
-//     var data = array.items;
-//     {
-//         var prev_line: u32 = 0;
-//         var prev_character: u32 = 0;
-//         var i: u32 = 0;
-//         while (i < data.len) : (i += 5) {
-//             const current_line = data[i];
-//             const current_character = data[i + 1];
+            data[i] = current_line - prev_line;
+            data[i + 1] = current_character - if (current_line == prev_line) prev_character else 0;
 
-//             data[i] = current_line - prev_line;
-//             data[i + 1] = current_character - if (current_line == prev_line) prev_character else 0;
-
-//             prev_line = current_line;
-//             prev_character = current_character;
-//         }
-//     }
-//     // logger.debug("semantic tokens: {}", .{data.len});
-//     return lsp.Response{
-//         .id = id,
-//         .result = .{ .SemanticTokensFull = .{ .data = data } },
-//     };
-// }
+            prev_line = current_line;
+            prev_character = current_character;
+        }
+    }
+    // logger.debug("semantic tokens: {}", .{data.len});
+    // SemanticTokensFull: struct { data: []const u32 }
+    return json_util.allocToResponse(arena.allocator(), id, .{ .data = data });
+}
 
 // // /// # language feature
 // // /// ## document request

@@ -56,6 +56,18 @@ pub fn main() anyerror!void {
     dispatcher.registerNotification(&language_server, "textDocument/didSave");
     dispatcher.registerNotification(&language_server, "textDocument/didClose");
     language_server.server_capabilities.textDocumentSync = .Full;
+    // document request
+    dispatcher.registerRequest(&language_server, "textDocument/semanticTokens/full");
+    language_server.server_capabilities.semanticTokensProvider = .{
+        .full = true,
+        .range= false,
+        .legend = .{
+            .tokenTypes = &.{},
+            .tokenModifiers = &.{},
+        },
+    };
+
+    // dispatcher.registerRequest(&language_server, "textDocument/documentSymbol");
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

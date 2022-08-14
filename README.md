@@ -18,21 +18,23 @@ zls の zls.exe のみを置き換えて使います。
 |                                  | zls | yazls |                                                 |
 |----------------------------------|-----|-------|-------------------------------------------------|
 | initialize                       | ✅   | ✅     |                                                 |
-| initialized                      |     | ✅     |                                                 |
+| initialized                      |     | ✅     | 何もしてない                                    |
 | shutdown                         | ✅   | ✅     |                                                 |
 | textDocument/didOpen             | ✅   | ✅     |                                                 |
 | textDocument/didChange           | ✅   | ✅     |                                                 |
 | textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                            |
 | textDocument/didClose            | ✅   | ✅     |                                                 |
 | textDocument/publishDiagnostics  | ✅   |       | camel_case, snake_case 等のスタイルチェック無し |
+| textDocument/semanticTokens/full | ✅   | ✅     |                                                 |
 | @cImport                         |     |       |                                                 |
 | gyro.zzz から pkg マップをロード |     |       |                                                 |
 
 ## simple 化
 
+* Config ない
 * Document の reference カウントしない
 * BuildFile は workspace/build.zig ひとつに決め打ち
-* import の 参照記録していない
+* import の 参照記録していない。ファイル外からの references を実装してない
 
 # 実装メモ
 
