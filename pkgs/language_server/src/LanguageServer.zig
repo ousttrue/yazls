@@ -4,35 +4,22 @@ const std = @import("std");
 const lsp = @import("language_server_protocol");
 const astutil = @import("astutil");
 const FixedPath = astutil.FixedPath;
-const ZigEnv = @import("./ZigEnv.zig");
 const Line = astutil.Line;
 const ImportSolver = astutil.ImportSolver;
 const DocumentStore = astutil.DocumentStore;
-const semantic_tokens = @import("./semantic_tokens.zig");
 const Project = astutil.Project;
 const Document = astutil.Document;
 const AstToken = astutil.AstToken;
 
+const ZigEnv = @import("./ZigEnv.zig");
 const Diagnostic = @import("./Diagnostic.zig");
+const semantic_tokens = @import("./semantic_tokens.zig");
 const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 const document_symbol = @import("./document_symbol.zig");
 const Goto = @import("./Goto.zig");
 const Completion = @import("./Completion.zig");
 const Signature = @import("./Signature.zig");
-
-// const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
-// const AstNodeIterator = astutil.AstNodeIterator;
-// const AstToken = astutil.AstToken;
-// const Config = @import("./Config.zig");
-// const ClientCapabilities = @import("./ClientCapabilities.zig");
-// pub const URI = @import("./uri.zig");
-// const FunctionSignature = astutil.FunctionSignature;
-// const textdocument = @import("./textdocument.zig");
-// const textdocument_position = @import("./textdocument_position.zig");
-// const Hover = @import("./Hover.zig");
-// const Goto = @import("./Goto.zig");
-// const Completion = @import("./Completion.zig");
-// const Signature = @import("./Signature.zig");
+const Hover = @import("./Hover.zig");
 const json_util = @import("./json_util.zig");
 const logger = std.log.scoped(.LanguageServer);
 
@@ -388,56 +375,56 @@ pub fn @"textDocument/semanticTokens/full"(self: *Self, arena: *std.heap.ArenaAl
 // //     return lsp.Response.createNull(id);
 // // }
 
-// /// # language feature
-// /// ## document position request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover
-// pub fn @"textDocument/hover"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     const params = try lsp.fromDynamicTree(arena, lsp.requests.Hover, jsonParams.?);
-//     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
-//     const position = params.position;
-//     const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
-//     const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
-//     const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
-//         return lsp.Response.createNull(id);
-//     };
+/// # language feature
+/// ## document position request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover
+pub fn @"textDocument/hover"(
+    self: *Self,
+    arena: *std.heap.ArenaAllocator,
+    id: i64,
+    jsonParams: ?std.json.Value,
+) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.types.TextDocumentIdentifierPositionRequest, jsonParams.?);
+    const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+    const position = params.position;
+    const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
+    const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
+    const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
 
-//     const hover_or_null = try Hover.getHover(
-//         arena,
-//         Project.init(self.import_solver, &self.store),
-//         doc,
-//         token,
-//     );
+    const hover_or_null = try Hover.getHover(
+        arena,
+        Project.init(self.import_solver, &self.store),
+        doc,
+        token,
+    );
 
-//     const hover = hover_or_null orelse {
-//         return lsp.Response.createNull(id);
-//     };
+    const hover = hover_or_null orelse {
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
 
-//     var range: ?lsp.types.Range = null;
-//     if (hover.loc) |loc| {
-//         const start = try doc.utf8_buffer.getPositionFromBytePosition(loc.start, self.encoding);
-//         const end = try doc.utf8_buffer.getPositionFromBytePosition(loc.end, self.encoding);
-//         range = lsp.types.Range{
-//             .start = .{
-//                 .line = start.line,
-//                 .character = start.x,
-//             },
-//             .end = .{
-//                 .line = end.line,
-//                 .character = end.x,
-//             },
-//         };
-//     }
+    var range: ?lsp.types.Range = null;
+    if (hover.loc) |loc| {
+        const start = try doc.utf8_buffer.getPositionFromBytePosition(loc.start, self.encoding);
+        const end = try doc.utf8_buffer.getPositionFromBytePosition(loc.end, self.encoding);
+        range = lsp.types.Range{
+            .start = .{
+                .line = start.line,
+                .character = start.x,
+            },
+            .end = .{
+                .line = end.line,
+                .character = end.x,
+            },
+        };
+    }
 
-//     return lsp.Response{
-//         .id = id,
-//         .result = .{
-//             .Hover = .{
-//                 .contents = .{ .value = hover.text },
-//                 .range = range,
-//             },
-//         },
-//     };
-// }
+    return json_util.allocToResponse(arena.allocator(), id, lsp.types.Hover{
+        .contents = .{ .value = hover.text },
+        .range = range,
+    });
+}
 
 /// # language feature
 /// ## document position request

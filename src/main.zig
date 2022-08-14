@@ -55,6 +55,8 @@ pub fn main() anyerror!void {
     dispatcher.registerRequest(&language_server, "initialize");
     dispatcher.registerNotification(&language_server, "initialized");
     dispatcher.registerRequest(&language_server, "shutdown");
+    dispatcher.registerNotification(&language_server, "$/cancelRequest");
+
     // document sync
     dispatcher.registerNotification(&language_server, "textDocument/didOpen");
     dispatcher.registerNotification(&language_server, "textDocument/didChange");
@@ -95,6 +97,9 @@ pub fn main() anyerror!void {
         .triggerCharacters = &.{"("},
         .retriggerCharacters = &.{","},
     };
+    // hover
+    dispatcher.registerRequest(&language_server, "textDocument/hover");
+    language_server.server_capabilities.hoverProvider = true;
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

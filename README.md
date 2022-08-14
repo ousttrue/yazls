@@ -9,31 +9,43 @@ zls の zls.exe のみを置き換えて使います。
 
 ```json:settings.json
 "zls.path": "PATH_TO_HERE/zig-out/bin/yazls.exe",
+
+// Linux
+
+"zls.path": "PATH_TO_HERE/zig-out/bin/yazls",
 ```
+
+WSL2 ArchLinux で開発中・・・
 
 # TODO
 
 * [ ] 0.1: 改造版の zls を移植するところまで
 
-|                                  | zls | yazls |                                                 |
-|----------------------------------|-----|-------|-------------------------------------------------|
-| initialize                       | ✅   | ✅     |                                                 |
-| initialized                      |     | ✅     | 何もしてない                                    |
-| shutdown                         | ✅   | ✅     |                                                 |
-| textDocument/didOpen             | ✅   | ✅     |                                                 |
-| textDocument/didChange           | ✅   | ✅     |                                                 |
-| textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                            |
-| textDocument/didClose            | ✅   | ✅     |                                                 |
-| textDocument/publishDiagnostics  | ✅   | ✅     | camel_case, snake_case 等のスタイルチェック無し |
-| textDocument/semanticTokens/full | ✅   | ✅     |                                                 |
-| textDocument/formatting          | ✅   | ✅     |                                                 |
-| textDocument/documentSymbol      | ✅   | ✅     |                                                 |
-| textDocument/declaration         | ✅   |       | declaration と definition の区別                |
-| textDocument/definition          | ✅   | ✅     | 不完全                                          |
-| textDocument/completion          | ✅   | ✅     | 不完全                                          |
-| textDocument/signatureHelp       | ✅   | ✅     | 不完全                                          |
-| @cImport                         |     |       |                                                 |
-| gyro.zzz から pkg マップをロード |     |       |                                                 |
+|                                  | zls | yazls |                                                          |
+|----------------------------------|-----|-------|----------------------------------------------------------|
+| initialized                      |     | ✅     | 何もしてない                                             |
+| $/cancelRequest                  |     | ✅     | 何もしてない                                             |
+| initialize                       | ✅   | ✅     |                                                          |
+| shutdown                         | ✅   | ✅     |                                                          |
+| textDocument/didOpen             | ✅   | ✅     |                                                          |
+| textDocument/didChange           | ✅   | ✅     |                                                          |
+| textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                                     |
+| textDocument/didClose            | ✅   | ✅     | 何もしてない                                                         |
+| textDocument/publishDiagnostics  | ✅   | ✅     | camel_case, snake_case 等のスタイルチェック無し          |
+| textDocument/semanticTokens/full | ✅   | ✅     |                                                          |
+| textDocument/formatting          | ✅   | ✅     |                                                          |
+| textDocument/documentSymbol      | ✅   | ✅     |                                                          |
+| textDocument/declaration         | ✅   |       | declaration と definition の区別                         |
+| textDocument/definition          | ✅   | ✅     | 不完全                                                   |
+| textDocument/completion          | ✅   | ✅     | 不完全                                                   |
+| textDocument/signatureHelp       | ✅   | ✅     | 不完全                                                   |
+| textDocument/hover               | ✅   | ✅     | Debug情報                                                |
+| textDocument/rename              | ✅   |       | TODO                                                     |
+| textDocument/references          | ✅   |       |                                                          |
+| textDocument/codeLens            |     |       | 実験                                                     |
+| codeLens/resolve                 |     |       | よくわからん                                             |
+| @cImport                         |     |       | パッケージ名 "c" を zig-cache の該当ファイルにに置き換え |
+| gyro.zzz から pkg マップをロード |     |       | build 時依存を解決                                       |
 
 ## textDocument/declaration textDocument/definition
 
@@ -52,6 +64,11 @@ zls の zls.exe のみを置き換えて使います。
 * [ ] enum
 
 ## textDocument/signatureHelp
+
+* [ ] builtin 関数
+
+## textDocument/hover
+
 * [ ] builtin 関数
 
 ## builtin 関数
@@ -59,6 +76,7 @@ zls の zls.exe のみを置き換えて使います。
 <https://github.com/ziglang/zig/blob/master/doc/langref.html.in>
 
 から python で加工している。
+正規表現 `{#header_open\|(@\S+?)#}(.+?){#header_close#}` で `@` 始まる関数を抽出している。
 
 ## simple 化
 
