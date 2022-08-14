@@ -93,22 +93,24 @@ pub fn initialize(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonPar
     }
 
     // semantic token
-    self.server_capabilities.semanticTokensProvider.?.legend.tokenTypes = block: {
-        const tokTypeFields = std.meta.fields(semantic_tokens.SemanticTokenType);
-        var names: [tokTypeFields.len][]const u8 = undefined;
-        inline for (tokTypeFields) |field, i| {
-            names[i] = field.name;
-        }
-        break :block &names;
-    };
-    self.server_capabilities.semanticTokensProvider.?.legend.tokenModifiers = block: {
-        const tokModFields = std.meta.fields(semantic_tokens.SemanticTokenModifiers);
-        var names: [tokModFields.len][]const u8 = undefined;
-        inline for (tokModFields) |field, i| {
-            names[i] = field.name;
-        }
-        break :block &names;
-    };
+    if (self.server_capabilities.semanticTokensProvider) |*semantic_tokens_provider| {
+        semantic_tokens_provider.legend.tokenTypes = block: {
+            const tokTypeFields = std.meta.fields(semantic_tokens.SemanticTokenType);
+            var names: [tokTypeFields.len][]const u8 = undefined;
+            inline for (tokTypeFields) |field, i| {
+                names[i] = field.name;
+            }
+            break :block &names;
+        };
+        semantic_tokens_provider.legend.tokenModifiers = block: {
+            const tokModFields = std.meta.fields(semantic_tokens.SemanticTokenModifiers);
+            var names: [tokModFields.len][]const u8 = undefined;
+            inline for (tokModFields) |field, i| {
+                names[i] = field.name;
+            }
+            break :block &names;
+        };
+    }
 
     // if (params.capabilities.textDocument) |textDocument| {
     //     self.client_capabilities.supports_semantic_tokens = textDocument.semanticTokens.exists;
