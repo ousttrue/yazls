@@ -83,6 +83,12 @@ pub fn main() anyerror!void {
     // definition
     dispatcher.registerRequest(&language_server, "textDocument/definition");
     language_server.server_capabilities.definitionProvider = true;
+    // completion
+    dispatcher.registerRequest(&language_server, "textDocument/completion");
+    language_server.server_capabilities.completionProvider = .{
+        .resolveProvider = false,
+        .triggerCharacters = &[_][]const u8{ ".", ":", "@" },
+    };
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

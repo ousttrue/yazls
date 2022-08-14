@@ -17,6 +17,7 @@ const Diagnostic = @import("./Diagnostic.zig");
 const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 const document_symbol = @import("./document_symbol.zig");
 const Goto = @import("./Goto.zig");
+const Completion = @import("./Completion.zig");
 
 // const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 // const AstNodeIterator = astutil.AstNodeIterator;
@@ -478,36 +479,36 @@ pub fn @"textDocument/definition"(
     });
 }
 
-// /// # language feature
-// /// ## document position request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
-// pub fn @"textDocument/completion"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     // var tmp = std.ArrayList(u8).init(arena.allocator());
-//     // try jsonParams.?.jsonStringify(.{}, tmp.writer());
-//     // logger.debug("{s}", .{tmp.items});
+/// # language feature
+/// ## document position request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
+pub fn @"textDocument/completion"(
+    self: *Self,
+    arena: *std.heap.ArenaAllocator,
+    id: i64,
+    jsonParams: ?std.json.Value,
+) ![]const u8 {
+    // var tmp = std.ArrayList(u8).init(arena.allocator());
+    // try jsonParams.?.jsonStringify(.{}, tmp.writer());
+    // logger.debug("{s}", .{tmp.items});
 
-//     const params = try lsp.fromDynamicTree(arena, lsp.completion.CompletionParams, jsonParams.?);
-//     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
-//     const position = params.position;
-//     const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
-//     const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
+    const params = try lsp.fromDynamicTree(arena, lsp.completion.CompletionParams, jsonParams.?);
+    const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+    const position = params.position;
+    const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
+    const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
 
-//     const completions = try Completion.getCompletion(
-//         arena,
-//         self.project(),
-//         doc,
-//         params.context.triggerCharacter,
-//         byte_position,
-//         self.encoding,
-//     );
+    const completions = try Completion.getCompletion(
+        arena,
+        self.project(),
+        doc,
+        params.context.triggerCharacter,
+        byte_position,
+        self.encoding,
+    );
 
-//     return lsp.Response{
-//         .id = id,
-//         .result = .{
-//             .CompletionItems = completions,
-//         },
-//     };
-// }
+    return json_util.allocToResponse(arena.allocator(), id, completions);
+}
 
 // // /// # language feature
 // // /// ## document position request

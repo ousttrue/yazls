@@ -30,6 +30,7 @@ zls の zls.exe のみを置き換えて使います。
 | textDocument/documentSymbol      | ✅   | ✅     |                                                 |
 | textDocument/declaration         | ✅   |       | declaration と definition の区別                |
 | textDocument/definition          | ✅   | ✅     | 不完全                                          |
+| textDocument/completion          | ✅   | ✅     | 不完全                                          |
 | @cImport                         |     |       |                                                 |
 | gyro.zzz から pkg マップをロード |     |       |                                                 |
 
@@ -40,6 +41,14 @@ zls の zls.exe のみを置き換えて使います。
 * [x] call => fn_decl
 * [x] field_access => container_field
 * [ ] type from fn that return type
+
+## textDocument/completion
+
+* [ ] builtin 関数
+* [x] member field 列挙
+* [x] package, *.zig 列挙
+* [ ] struct_init 時の field 入力
+* [ ] enum
 
 ## simple 化
 
