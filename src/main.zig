@@ -43,7 +43,7 @@ pub fn main() anyerror!void {
 
     var zigenv = try ls.ZigEnv.init(allocator);
 
-    const enqueue_notification=ls.LanguageServer.EnqueueNotificationFunctor{
+    const enqueue_notification = ls.LanguageServer.EnqueueNotificationFunctor{
         .ptr = &transport,
         .proto = jsonrpc.TypeErasure(jsonrpc.Stdio, "sendRpcBody").call,
     };
@@ -80,6 +80,9 @@ pub fn main() anyerror!void {
     // symbol
     dispatcher.registerRequest(&language_server, "textDocument/documentSymbol");
     language_server.server_capabilities.documentSymbolProvider = true;
+    // definition
+    dispatcher.registerRequest(&language_server, "textDocument/definition");
+    language_server.server_capabilities.definitionProvider = true;
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

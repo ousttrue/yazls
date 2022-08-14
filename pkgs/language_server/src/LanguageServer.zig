@@ -11,10 +11,12 @@ const DocumentStore = astutil.DocumentStore;
 const semantic_tokens = @import("./semantic_tokens.zig");
 const Project = astutil.Project;
 const Document = astutil.Document;
+const AstToken = astutil.AstToken;
 
 const Diagnostic = @import("./Diagnostic.zig");
 const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 const document_symbol = @import("./document_symbol.zig");
+const Goto = @import("./Goto.zig");
 
 // const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 // const AstNodeIterator = astutil.AstNodeIterator;
@@ -435,44 +437,46 @@ pub fn @"textDocument/semanticTokens/full"(self: *Self, arena: *std.heap.ArenaAl
 //     };
 // }
 
-// /// # language feature
-// /// ## document position request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
-// pub fn @"textDocument/definition"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     const params = try lsp.fromDynamicTree(arena, lsp.requests.GotoDefinition, jsonParams.?);
-//     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
-//     const position = params.position;
-//     const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
-//     const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
-//     const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
-//         return lsp.Response.createNull(id);
-//     };
+/// # language feature
+/// ## document position request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
+pub fn @"textDocument/definition"(
+    self: *Self,
+    arena: *std.heap.ArenaAllocator,
+    id: i64,
+    jsonParams: ?std.json.Value,
+) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.types.TextDocumentIdentifierPositionRequest, jsonParams.?);
+    const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+    const position = params.position;
+    const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
+    const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
+    const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
 
-//     if (try Goto.getGoto(arena, Project.init(self.import_solver, &self.store), doc, token)) |location| {
-//         const goto_doc = (try self.store.getOrLoad(location.path)) orelse {
-//             logger.warn("fail to load: {s}", .{location.path.slice()});
-//             return error.DocumentNotFound;
-//         };
-//         const goto = try goto_doc.utf8_buffer.getPositionFromBytePosition(location.loc.start, self.encoding);
-//         const goto_pos = lsp.Position{ .line = goto.line, .character = goto.x };
+    // get location
+    const location = (try Goto.getGoto(arena, Project.init(self.import_solver, &self.store), doc, token)) orelse {
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
 
-//         const uri = try URI.fromPath(arena.allocator(), location.path.slice());
-//         return lsp.Response{
-//             .id = id,
-//             .result = .{
-//                 .Location = .{
-//                     .uri = uri,
-//                     .range = .{
-//                         .start = goto_pos,
-//                         .end = goto_pos,
-//                     },
-//                 },
-//             },
-//         };
-//     } else {
-//         return lsp.Response.createNull(id);
-//     }
-// }
+    // location to lsp
+    const goto_doc = (try self.store.getOrLoad(location.path)) orelse {
+        logger.warn("fail to load: {s}", .{location.path.slice()});
+        return error.DocumentNotFound;
+    };
+    const goto = try goto_doc.utf8_buffer.getPositionFromBytePosition(location.loc.start, self.encoding);
+    const goto_pos = lsp.types.Position{ .line = goto.line, .character = goto.x };
+
+    const uri = try location.path.allocToUri(arena.allocator());
+    return json_util.allocToResponse(arena.allocator(), id, lsp.types.Location{
+        .uri = uri,
+        .range = .{
+            .start = goto_pos,
+            .end = goto_pos,
+        },
+    });
+}
 
 // /// # language feature
 // /// ## document position request

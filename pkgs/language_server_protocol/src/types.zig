@@ -111,3 +111,8 @@ pub const TextDocumentIdentifier = struct {
 pub const TextDocumentIdentifierRequest = struct {
     textDocument: TextDocumentIdentifier,
 };
+
+pub const TextDocumentIdentifierPositionRequest = struct {
+    textDocument: TextDocumentIdentifier,
+    position: Position,
+};

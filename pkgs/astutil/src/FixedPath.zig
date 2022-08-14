@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const FixedStringBuffer = @import("./FixedStringBuffer.zig");
 const logger = std.log.scoped(.FixedPath);
 const Self = @This();
@@ -194,4 +195,51 @@ pub fn iterateChildren(self: Self) !FileIterator {
     };
     it.it = it.dir.iterate();
     return it;
+}
+
+// http://tools.ietf.org/html/rfc3986#section-2.2
+const reserved_chars = &[_]u8{
+    '!', '#', '$', '%', '&', '\'',
+    '(', ')', '*', '+', ',', ':',
+    ';', '=', '?', '@', '[', ']',
+};
+
+const reserved_escapes = blk: {
+    var escapes: [reserved_chars.len][3]u8 = [_][3]u8{[_]u8{undefined} ** 3} ** reserved_chars.len;
+
+    for (reserved_chars) |c, i| {
+        escapes[i][0] = '%';
+        _ = std.fmt.bufPrint(escapes[i][1..], "{X}", .{c}) catch unreachable;
+    }
+    break :blk &escapes;
+};
+
+pub fn allocToUri(self: Self, allocator: std.mem.Allocator) ![]const u8 {
+    if (self.len() == 0) return "";
+    const prefix = if (builtin.os.tag == .windows) "file:///" else "file://";
+
+    var buf = std.ArrayList(u8).init(allocator);
+    try buf.appendSlice(prefix);
+
+    for (self.slice()) |char| {
+        if (char == std.fs.path.sep) {
+            try buf.append('/');
+        } else if (std.mem.indexOfScalar(u8, reserved_chars, char)) |reserved| {
+            try buf.appendSlice(&reserved_escapes[reserved]);
+        } else {
+            try buf.append(char);
+        }
+    }
+
+    // On windows, we need to lowercase the drive name.
+    if (builtin.os.tag == .windows) {
+        if (buf.items.len > prefix.len + 1 and
+            std.ascii.isAlpha(buf.items[prefix.len]) and
+            std.mem.startsWith(u8, buf.items[prefix.len + 1 ..], "%3A"))
+        {
+            buf.items[prefix.len] = std.ascii.toLower(buf.items[prefix.len]);
+        }
+    }
+
+    return buf.toOwnedSlice();
 }

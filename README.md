@@ -28,8 +28,18 @@ zls の zls.exe のみを置き換えて使います。
 | textDocument/semanticTokens/full | ✅   | ✅     |                                                 |
 | textDocument/formatting          | ✅   | ✅     |                                                 |
 | textDocument/documentSymbol      | ✅   | ✅     |                                                 |
+| textDocument/declaration         | ✅   |       | declaration と definition の区別                |
+| textDocument/definition          | ✅   | ✅     | 不完全                                          |
 | @cImport                         |     |       |                                                 |
 | gyro.zzz から pkg マップをロード |     |       |                                                 |
+
+## textDocument/declaration textDocument/definition
+
+* [ ] textDocument/declaration => struct_decl まで飛ぶ
+* [ ] textDocument/definition => var_decl, container_field まで飛ぶ
+* [x] call => fn_decl
+* [x] field_access => container_field
+* [ ] type from fn that return type
 
 ## simple 化
 
