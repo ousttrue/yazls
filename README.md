@@ -15,37 +15,76 @@ zls の zls.exe のみを置き換えて使います。
 "zls.path": "PATH_TO_HERE/zig-out/bin/yazls",
 ```
 
-WSL2 ArchLinux で開発中・・・
+Windows11 の WSL2 ArchLinux 上で VSCode で開発中・・・
 
 # TODO
 
-* [ ] 0.1: 改造版の zls を移植するところまで
+* [ ] 0.1: 改造版の zls を移植。 @cImport の初期実装。
 
-|                                  | zls | yazls |                                                          |
-|----------------------------------|-----|-------|----------------------------------------------------------|
-| initialized                      |     | ✅     | 何もしてない                                             |
-| $/cancelRequest                  |     | ✅     | 何もしてない                                             |
-| initialize                       | ✅   | ✅     |                                                          |
-| shutdown                         | ✅   | ✅     |                                                          |
-| textDocument/didOpen             | ✅   | ✅     |                                                          |
-| textDocument/didChange           | ✅   | ✅     |                                                          |
-| textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                                     |
-| textDocument/didClose            | ✅   | ✅     | 何もしてない                                                         |
-| textDocument/publishDiagnostics  | ✅   | ✅     | camel_case, snake_case 等のスタイルチェック無し          |
-| textDocument/semanticTokens/full | ✅   | ✅     |                                                          |
-| textDocument/formatting          | ✅   | ✅     |                                                          |
-| textDocument/documentSymbol      | ✅   | ✅     |                                                          |
-| textDocument/declaration         | ✅   |       | declaration と definition の区別                         |
-| textDocument/definition          | ✅   | ✅     | 不完全                                                   |
-| textDocument/completion          | ✅   | ✅     | 不完全                                                   |
-| textDocument/signatureHelp       | ✅   | ✅     | 不完全                                                   |
-| textDocument/hover               | ✅   | ✅     | Debug情報                                                |
-| textDocument/rename              | ✅   |       | TODO                                                     |
-| textDocument/references          | ✅   |       |                                                          |
-| textDocument/codeLens            |     |       | 実験                                                     |
-| codeLens/resolve                 |     |       | よくわからん                                             |
-| @cImport                         |     |       | パッケージ名 "c" を zig-cache の該当ファイルにに置き換え |
-| gyro.zzz から pkg マップをロード |     |       | build 時依存を解決                                       |
+|                                  | zls | yazls |                                                 |
+|----------------------------------|-----|-------|-------------------------------------------------|
+| initialized                      |     | ✅     | 何もしてない                                    |
+| $/cancelRequest                  |     | ✅     | 何もしてない                                    |
+| initialize                       | ✅   | ✅     |                                                 |
+| shutdown                         | ✅   | ✅     |                                                 |
+| textDocument/didOpen             | ✅   | ✅     |                                                 |
+| textDocument/didChange           | ✅   | ✅     |                                                 |
+| textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                            |
+| textDocument/didClose            | ✅   | ✅     | 何もしてない                                    |
+| textDocument/publishDiagnostics  | ✅   | ✅     | camel_case, snake_case 等のスタイルチェック無し |
+| textDocument/semanticTokens/full | ✅   | ✅     |                                                 |
+| textDocument/formatting          | ✅   | ✅     |                                                 |
+| textDocument/documentSymbol      | ✅   | ✅     |                                                 |
+| textDocument/declaration         | ✅   |       | declaration と definition の区別                |
+| textDocument/definition          | ✅   | ✅     | 不完全                                          |
+| textDocument/completion          | ✅   | ✅     | 不完全                                          |
+| textDocument/signatureHelp       | ✅   | ✅     | 不完全                                          |
+| textDocument/hover               | ✅   | ✅     | Debug情報                                       |
+| textDocument/rename              | ✅   |       | TODO                                            |
+| textDocument/references          | ✅   |       |                                                 |
+| textDocument/codeLens            |     |       | 実験                                            |
+| codeLens/resolve                 |     |       | よくわからん                                    |
+| @import("builtin") サポート      | ✅   |       | 停止中・・・                                    |
+| @cImport                         |     |       | @import("c") を translate-c の結果で置き換える  |
+| gyro.zzz から pkg マップをロード |     |       | build 時依存を解決                              |
+
+## @cImport サポート
+
+決まった作法で `@cImport` を記述することで扱えるようにする。
+
+* プロジェクトルートに `c.zig` を配置
+
+```zig
+pub usingnamespace @cImport({
+    // 任意の cInclude など
+});
+```
+
+* `build.zig` で `c.zig` を Pkg "c" に隔離
+
+```zig
+// build.zig
+const c_pkg = std.build.Pkg{
+    .name = "c", // 固定名
+    .source = .{ .path = "c.zig" }, // 固定ファイル
+};
+
+fn main(b: Build)
+{
+    exe.addPackage(c_pkg);
+}
+```
+
+以上の作法で c.zig を配置する。
+yazls 起動時に `zig build-lib c.zig -lc --verbose-cimport` を実行して zig-cache 内の translate-c された zig のパスを得る。
+`@import("c")` を zig-cache のファイルで置き換えるという動作をする。
+
+### 決まった作法に固定している理由
+
+* `zig build-lib c.zig -lc --verbose-cimport` を実行するファイルを決定する必要がある
+* c.zig に他の要素があると、依存などで `zig build-lib c.zig -lc --verbose-cimport` が失敗する場合がある
+* `usingnamespace` に対処するのがめんどくさい
+* @cImport が複数あっても zig-cache は1ファイルにまとまるっぽい
 
 ## textDocument/declaration textDocument/definition
 
@@ -84,6 +123,7 @@ WSL2 ArchLinux で開発中・・・
 * Document の reference カウントしない
 * BuildFile は workspace/build.zig ひとつに決め打ち
 * import の 参照記録していない。ファイル外からの references を実装してない
+* usingnamespace を処理しない
 
 # 実装メモ
 
