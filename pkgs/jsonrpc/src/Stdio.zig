@@ -25,7 +25,7 @@ pub fn init(allocator: std.mem.Allocator) Self {
 }
 
 pub fn deinit(self: Self) void {
-    self.json_buffer.deinit();
+    self.content_buffer.deinit();
 }
 
 pub fn sendLogMessage(self: *Self, allocator: std.mem.Allocator, message_level: std.log.Level, message: []const u8) void {

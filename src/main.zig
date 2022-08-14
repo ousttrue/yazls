@@ -35,6 +35,7 @@ pub fn main() anyerror!void {
     defer std.debug.assert(!gpa.deinit());
 
     transport = jsonrpc.Stdio.init(allocator);
+    defer transport.deinit();
     logger.info("######## [YAZLS] ########", .{});
 
     var dispatcher = jsonrpc.Dispatcher.init(allocator);
@@ -43,9 +44,18 @@ pub fn main() anyerror!void {
     var zigenv = try ls.ZigEnv.init(allocator);
 
     var language_server = ls.LanguageServer.init(allocator, zigenv);
+    defer language_server.deinit();
+
+    // lifecycle
     dispatcher.registerRequest(&language_server, "initialize");
     dispatcher.registerNotification(&language_server, "initialized");
     dispatcher.registerRequest(&language_server, "shutdown");
+    // document sync
+    dispatcher.registerNotification(&language_server, "textDocument/didOpen");
+    dispatcher.registerNotification(&language_server, "textDocument/didChange");
+    dispatcher.registerNotification(&language_server, "textDocument/didSave");
+    dispatcher.registerNotification(&language_server, "textDocument/didClose");
+    language_server.server_capabilities.textDocumentSync = .Full;
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }

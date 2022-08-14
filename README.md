@@ -15,13 +15,24 @@ zls の zls.exe のみを置き換えて使います。
 
 * [ ] 0.1: 改造版の zls を移植するところまで
 
-|                                  | zls | yazls |
-|----------------------------------|-----|-------|
-| initialize                       | ✅   | ✅     |
-| initialized                      |     | ✅     |
-| shutdown                         | ✅   | ✅     |
-| @cImport                         |     |       |
-| gyro.zzz から pkg マップをロード |     |       |
+|                                  | zls | yazls |                                                 |
+|----------------------------------|-----|-------|-------------------------------------------------|
+| initialize                       | ✅   | ✅     |                                                 |
+| initialized                      |     | ✅     |                                                 |
+| shutdown                         | ✅   | ✅     |                                                 |
+| textDocument/didOpen             | ✅   | ✅     |                                                 |
+| textDocument/didChange           | ✅   | ✅     |                                                 |
+| textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                            |
+| textDocument/didClose            | ✅   | ✅     |                                                 |
+| textDocument/publishDiagnostics  | ✅   |       | camel_case, snake_case 等のスタイルチェック無し |
+| @cImport                         |     |       |                                                 |
+| gyro.zzz から pkg マップをロード |     |       |                                                 |
+
+## simple 化
+
+* Document の reference カウントしない
+* BuildFile は workspace/build.zig ひとつに決め打ち
+* import の 参照記録していない
 
 # 実装メモ
 

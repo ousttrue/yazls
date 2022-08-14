@@ -107,3 +107,7 @@ pub const CodeLens = struct {
 pub const TextDocumentIdentifier = struct {
     uri: []const u8,
 };
+
+pub const TextDocumentIdentifierRequest = struct {
+    textDocument: TextDocumentIdentifier,
+};
