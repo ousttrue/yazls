@@ -43,7 +43,12 @@ pub fn main() anyerror!void {
 
     var zigenv = try ls.ZigEnv.init(allocator);
 
-    var language_server = ls.LanguageServer.init(allocator, zigenv);
+    const enqueue_notification=ls.LanguageServer.EnqueueNotificationFunctor{
+        .ptr = &transport,
+        .proto = jsonrpc.TypeErasure(jsonrpc.Stdio, "sendRpcBody").call,
+    };
+
+    var language_server = ls.LanguageServer.init(allocator, zigenv, enqueue_notification);
     defer language_server.deinit();
 
     // lifecycle

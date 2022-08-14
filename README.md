@@ -24,7 +24,7 @@ zls の zls.exe のみを置き換えて使います。
 | textDocument/didChange           | ✅   | ✅     |                                                 |
 | textDocument/didSave             | ✅   | ✅     | BuildFile 再評価無し                            |
 | textDocument/didClose            | ✅   | ✅     |                                                 |
-| textDocument/publishDiagnostics  | ✅   |       | camel_case, snake_case 等のスタイルチェック無し |
+| textDocument/publishDiagnostics  | ✅   | ✅     | camel_case, snake_case 等のスタイルチェック無し |
 | textDocument/semanticTokens/full | ✅   | ✅     |                                                 |
 | textDocument/formatting          | ✅   | ✅     |                                                 |
 | textDocument/documentSymbol      | ✅   | ✅     |                                                 |

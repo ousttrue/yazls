@@ -32,6 +32,15 @@ const document_symbol = @import("./document_symbol.zig");
 const json_util = @import("./json_util.zig");
 const logger = std.log.scoped(.LanguageServer);
 
+const EnqueueNotificationProto = fn (ptr: *anyopaque, []const u8) void;
+pub const EnqueueNotificationFunctor = struct {
+    ptr: *anyopaque,
+    proto: EnqueueNotificationProto,
+    pub fn call(self: @This(), notification: []const u8) void {
+        self.proto(self.ptr, notification);
+    }
+};
+
 const Self = @This();
 
 allocator: std.mem.Allocator,
@@ -45,16 +54,15 @@ store: DocumentStore,
 // client_capabilities: ClientCapabilities = .{},
 encoding: Line.Encoding = .utf16,
 server_capabilities: lsp.initialize.ServerCapabilities = .{},
-// notification_queue: std.ArrayList(lsp.Notification),
+enqueue_notification: EnqueueNotificationFunctor,
 
-pub fn init(allocator: std.mem.Allocator, zigenv: ZigEnv) Self {
+pub fn init(allocator: std.mem.Allocator, zigenv: ZigEnv, enqueue_notification: EnqueueNotificationFunctor) Self {
     var self = Self{
         .allocator = allocator,
         .zigenv = zigenv,
-        // .config = config,
         .import_solver = ImportSolver.init(allocator),
         .store = DocumentStore.init(allocator),
-        // .notification_queue = std.ArrayList(lsp.Notification).init(allocator),
+        .enqueue_notification = enqueue_notification,
     };
     self.import_solver.push("std", self.zigenv.std_path) catch unreachable;
     return self;
@@ -63,7 +71,6 @@ pub fn init(allocator: std.mem.Allocator, zigenv: ZigEnv) Self {
 pub fn deinit(self: *Self) void {
     self.store.deinit();
     self.import_solver.deinit();
-    // self.notification_queue.deinit();
 }
 
 pub fn project(self: *Self) Project {
@@ -171,20 +178,6 @@ pub fn shutdown(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParam
     return json_util.allocToResponse(arena.allocator(), id, null);
 }
 
-// fn publishDiagnostics(self: *Self, uri: []const u8, diagnostics: []lsp.diagnostic.Diagnostic) !void {
-//     logger.info("publishDiagnostics: {}", .{diagnostics.len});
-//     const notification = lsp.Notification{
-//         .method = "textDocument/publishDiagnostics",
-//         .params = .{
-//             .PublishDiagnostics = .{
-//                 .uri = uri,
-//                 .diagnostics = diagnostics,
-//             },
-//         },
-//     };
-//     try self.notification_queue.append(notification);
-// }
-
 /// # document sync
 /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didOpen
 pub fn @"textDocument/didOpen"(self: *Self, arena: *std.heap.ArenaAllocator, jsonParams: ?std.json.Value) !void {
@@ -192,11 +185,10 @@ pub fn @"textDocument/didOpen"(self: *Self, arena: *std.heap.ArenaAllocator, jso
     const path = try FixedPath.fromUri(params.textDocument.uri);
     const text = params.textDocument.text;
     const doc = try self.store.update(path, text);
-    _ = doc;
 
-    // TODO: enqueue notification
-    // const diagnostics = try Diagnostic.getDiagnostics(arena, doc, self.encoding);
-    // const notification = try diagnostic.publishDiagnostics(params.textDocument.uri, diagnostics);
+    const diagnostics = try Diagnostic.getDiagnostics(arena, doc, self.encoding);
+    const notification = try Diagnostic.publishDiagnostics(arena.allocator(), params.textDocument.uri, diagnostics);
+    self.enqueue_notification.call(notification);
 }
 
 /// # document sync
@@ -206,9 +198,9 @@ pub fn @"textDocument/didChange"(self: *Self, arena: *std.heap.ArenaAllocator, j
     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
     try doc.applyChanges(params.contentChanges.Array, self.encoding);
 
-    // TODO: enqueue notification
-    // const diagnostics = try Diagnostic.getDiagnostics(arena, doc, self.encoding);
-    // try self.publishDiagnostics(params.textDocument.uri, diagnostics);
+    const diagnostics = try Diagnostic.getDiagnostics(arena, doc, self.encoding);
+    const notification = try Diagnostic.publishDiagnostics(arena.allocator(), params.textDocument.uri, diagnostics);
+    self.enqueue_notification.call(notification);
 }
 
 /// # document sync

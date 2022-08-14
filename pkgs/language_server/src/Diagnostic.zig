@@ -18,7 +18,7 @@ pub fn getDiagnostics(arena: *std.heap.ArenaAllocator, doc: *Document, encoding:
             .range = try lsp_util.getRange(doc, AstToken.init(tree, err.token).getLoc(), encoding),
             .severity = .Error,
             .code = @tagName(err.tag),
-            .source = "zls",
+            .source = "yazls",
             .message = message.items,
             // .relatedInformation = undefined
         });
@@ -26,9 +26,9 @@ pub fn getDiagnostics(arena: *std.heap.ArenaAllocator, doc: *Document, encoding:
     return diagnostics.toOwnedSlice();
 }
 
-fn publishDiagnostics(allocator: std.mem.Allocator, uri: []const u8, diagnostics: []lsp.diagnostic.Diagnostic) ![]const u8 {
+pub fn publishDiagnostics(allocator: std.mem.Allocator, uri: []const u8, diagnostics: []lsp.diagnostic.Diagnostic) ![]const u8 {
     logger.info("publishDiagnostics: {}", .{diagnostics.len});
-    json_util.allocToNotification(allocator, "textDocument/publishDiagnostics", lsp.diagnostic.PublishDiagnosticsParams{
+    return json_util.allocToNotification(allocator, "textDocument/publishDiagnostics", lsp.diagnostic.PublishDiagnosticsParams{
         .uri = uri,
         .diagnostics = diagnostics,
     });
