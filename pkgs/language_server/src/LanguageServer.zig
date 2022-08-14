@@ -31,7 +31,6 @@ const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 const json_util = @import("./json_util.zig");
 const logger = std.log.scoped(.LanguageServer);
 
-
 const Self = @This();
 
 allocator: std.mem.Allocator,
@@ -95,22 +94,21 @@ pub fn initialize(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonPar
 
     // semantic token
     self.server_capabilities.semanticTokensProvider.?.legend.tokenTypes = block: {
-                const tokTypeFields = std.meta.fields(semantic_tokens.SemanticTokenType);
-                var names: [tokTypeFields.len][]const u8 = undefined;
-                inline for (tokTypeFields) |field, i| {
-                    names[i] = field.name;
-                }
-                break :block &names;
-            };
+        const tokTypeFields = std.meta.fields(semantic_tokens.SemanticTokenType);
+        var names: [tokTypeFields.len][]const u8 = undefined;
+        inline for (tokTypeFields) |field, i| {
+            names[i] = field.name;
+        }
+        break :block &names;
+    };
     self.server_capabilities.semanticTokensProvider.?.legend.tokenModifiers = block: {
-                const tokModFields = std.meta.fields(semantic_tokens.SemanticTokenModifiers);
-                var names: [tokModFields.len][]const u8 = undefined;
-                inline for (tokModFields) |field, i| {
-                    names[i] = field.name;
-                }
-                break :block &names;
-            };
-
+        const tokModFields = std.meta.fields(semantic_tokens.SemanticTokenModifiers);
+        var names: [tokModFields.len][]const u8 = undefined;
+        inline for (tokModFields) |field, i| {
+            names[i] = field.name;
+        }
+        break :block &names;
+    };
 
     // if (params.capabilities.textDocument) |textDocument| {
     //     self.client_capabilities.supports_semantic_tokens = textDocument.semanticTokens.exists;
@@ -227,50 +225,35 @@ pub fn @"textDocument/didClose"(self: *Self, arena: *std.heap.ArenaAllocator, js
     _ = doc;
 }
 
-// /// # language feature
-// /// ## document request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_formatting
-// pub fn @"textDocument/formatting"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     const params = try lsp.fromDynamicTree(arena, lsp.requests.Formatting, jsonParams.?);
-//     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+/// # language feature
+/// ## document request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_formatting
+pub fn @"textDocument/formatting"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.types.TextDocumentIdentifierRequest, jsonParams.?);
+    const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
 
-//     const stdout_bytes = self.zigenv.spawnZigFmt(arena.allocator(), doc.utf8_buffer.text) catch |err|
-//         {
-//         logger.err("zig fmt: {}", .{err});
-//         return lsp.Response.createNull(id);
-//     };
+    const stdout_bytes = try self.zigenv.spawnZigFmt(arena.allocator(), doc.utf8_buffer.text);
+    const end = doc.utf8_buffer.text.len;
+    const position = try doc.utf8_buffer.getPositionFromBytePosition(end, self.encoding);
+    const range = lsp.types.Range{
+        .start = .{
+            .line = 0,
+            .character = 0,
+        },
+        .end = .{
+            .line = position.line,
+            .character = position.x,
+        },
+    };
 
-//     const end = doc.utf8_buffer.text.len;
-//     const position = try doc.utf8_buffer.getPositionFromBytePosition(end, self.encoding);
-//     const range = lsp.Range{
-//         .start = .{
-//             .line = 0,
-//             .character = 0,
-//         },
-//         .end = .{
-//             .line = position.line,
-//             .character = position.x,
-//         },
-//     };
+    var edits = try arena.allocator().alloc(lsp.types.TextEdit, 1);
+    edits[0] = .{
+        .range = range,
+        .newText = stdout_bytes,
+    };
 
-//     var edits = try arena.allocator().alloc(lsp.TextEdit, 1);
-//     edits[0] = .{
-//         .range = range,
-//         .newText = stdout_bytes,
-//     };
-
-//     {
-//         const diagnostics = try textdocument.getDiagnostics(arena, doc, self.encoding);
-//         try self.publishDiagnostics(params.textDocument.uri, diagnostics);
-//     }
-
-//     return lsp.Response{
-//         .id = id,
-//         .result = .{
-//             .TextEdits = edits,
-//         },
-//     };
-// }
+    return json_util.allocToResponse(arena.allocator(), id, edits);
+}
 
 // /// # language feature
 // /// ## document request

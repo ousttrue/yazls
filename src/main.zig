@@ -60,12 +60,15 @@ pub fn main() anyerror!void {
     dispatcher.registerRequest(&language_server, "textDocument/semanticTokens/full");
     language_server.server_capabilities.semanticTokensProvider = .{
         .full = true,
-        .range= false,
+        .range = false,
         .legend = .{
             .tokenTypes = &.{},
             .tokenModifiers = &.{},
         },
     };
+
+    dispatcher.registerRequest(&language_server, "textDocument/formatting");
+    language_server.server_capabilities.documentFormattingProvider = true;
 
     // dispatcher.registerRequest(&language_server, "textDocument/documentSymbol");
 

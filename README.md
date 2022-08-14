@@ -26,6 +26,7 @@ zls の zls.exe のみを置き換えて使います。
 | textDocument/didClose            | ✅   | ✅     |                                                 |
 | textDocument/publishDiagnostics  | ✅   |       | camel_case, snake_case 等のスタイルチェック無し |
 | textDocument/semanticTokens/full | ✅   | ✅     |                                                 |
+| textDocument/formatting          | ✅   | ✅     |                                                 |
 | @cImport                         |     |       |                                                 |
 | gyro.zzz から pkg マップをロード |     |       |                                                 |
 
