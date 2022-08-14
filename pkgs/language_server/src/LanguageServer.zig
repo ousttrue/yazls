@@ -14,6 +14,7 @@ const Document = astutil.Document;
 
 const Diagnostic = @import("./Diagnostic.zig");
 const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
+const document_symbol = @import("./document_symbol.zig");
 
 // const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 // const AstNodeIterator = astutil.AstNodeIterator;
@@ -257,26 +258,24 @@ pub fn @"textDocument/formatting"(self: *Self, arena: *std.heap.ArenaAllocator, 
     return json_util.allocToResponse(arena.allocator(), id, edits);
 }
 
-// /// # language feature
-// /// ## document request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol
-// pub fn @"textDocument/documentSymbol"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     const params = try lsp.fromDynamicTree(arena, lsp.requests.DocumentSymbols, jsonParams.?);
-//     const path = try FixedPath.fromUri(params.textDocument.uri);
-//     const doc = self.store.get(path) orelse {
-//         logger.err("not found: {s}", .{path.slice()});
-//         return error.DocumentNotFound;
-//     };
-//     const symbols = try textdocument.to_symbols(arena, doc, self.encoding);
-//     const res = lsp.Response{
-//         .id = id,
-//         .result = .{
-//             .DocumentSymbols = symbols,
-//         },
-//     };
-//     // logT(arena, res);
-//     return res;
-// }
+/// # language feature
+/// ## document request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol
+pub fn @"textDocument/documentSymbol"(
+    self: *Self,
+    arena: *std.heap.ArenaAllocator,
+    id: i64,
+    jsonParams: ?std.json.Value,
+) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.types.TextDocumentIdentifierRequest, jsonParams.?);
+    const path = try FixedPath.fromUri(params.textDocument.uri);
+    const doc = self.store.get(path) orelse {
+        logger.err("not found: {s}", .{path.slice()});
+        return error.DocumentNotFound;
+    };
+    const symbols = try document_symbol.to_symbols(arena, doc, self.encoding);
+    return json_util.allocToResponse(arena.allocator(), id, symbols);
+}
 
 /// # language feature
 /// ## document request
