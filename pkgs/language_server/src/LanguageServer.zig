@@ -18,6 +18,7 @@ const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 const document_symbol = @import("./document_symbol.zig");
 const Goto = @import("./Goto.zig");
 const Completion = @import("./Completion.zig");
+const Signature = @import("./Signature.zig");
 
 // const SemanticTokensBuilder = @import("./SemanticTokensBuilder.zig");
 // const AstNodeIterator = astutil.AstNodeIterator;
@@ -604,59 +605,55 @@ pub fn @"textDocument/completion"(
 // //     }
 // // }
 
-// /// # language feature
-// /// ## document position request
-// /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_signatureHelp
-// pub fn @"textDocument/signatureHelp"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-//     const params = try lsp.fromDynamicTree(arena, lsp.signature_help.SignatureHelpParams, jsonParams.?);
-//     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
-//     const position = params.position;
-//     const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
-//     const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
-//     const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
-//         return lsp.Response.createNull(id);
-//     };
+/// # language feature
+/// ## document position request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_signatureHelp
+pub fn @"textDocument/signatureHelp"(
+    self: *Self,
+    arena: *std.heap.ArenaAllocator,
+    id: i64,
+    jsonParams: ?std.json.Value,
+) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.signature_help.SignatureHelpParams, jsonParams.?);
+    const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+    const position = params.position;
+    const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
+    const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
+    const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
 
-//     const signature = (try Signature.getSignature(
-//         arena,
-//         self.project(),
-//         doc,
-//         token,
-//     )) orelse {
-//         logger.warn("no signature", .{});
-//         return lsp.Response.createNull(id);
-//     };
+    const signature = (try Signature.getSignature(
+        arena,
+        self.project(),
+        doc,
+        token,
+    )) orelse {
+        logger.warn("no signature", .{});
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
 
-//     var args = std.ArrayList(lsp.signature_help.ParameterInformation).init(arena.allocator());
-//     for (signature.args.items) |arg| {
-//         try args.append(.{
-//             .label = arg.name,
-//             .documentation = .{
-//                 .kind = .Markdown,
-//                 .value = arg.document,
-//             },
-//         });
-//     }
-//     var signatures: [1]lsp.signature_help.SignatureInformation = .{
-//         .{
-//             .label = signature.name,
-//             .documentation = .{
-//                 .kind = .Markdown,
-//                 .value = signature.document,
-//             },
-//             .parameters = args.items,
-//             .activeParameter = signature.active_param,
-//         },
-//     };
+    var args = std.ArrayList(lsp.signature_help.ParameterInformation).init(arena.allocator());
+    for (signature.args.items) |arg| {
+        try args.append(.{
+            .label = arg.name,
+            .documentation = .{
+                .kind = .Markdown,
+                .value = arg.document,
+            },
+        });
+    }
+    var signatures: [1]lsp.signature_help.SignatureInformation = .{
+        .{
+            .label = signature.name,
+            .documentation = .{
+                .kind = .Markdown,
+                .value = signature.document,
+            },
+            .parameters = args.items,
+            .activeParameter = signature.active_param,
+        },
+    };
 
-//     const res = lsp.Response{
-//         .id = id,
-//         .result = .{
-//             .SignatureHelp = .{
-//                 .signatures = &signatures,
-//             },
-//         },
-//     };
-//     // logT(arena, res);
-//     return res;
-// }
+    return json_util.allocToResponse(arena.allocator(), id, .{ .signatures = signatures });
+}

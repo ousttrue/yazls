@@ -89,6 +89,12 @@ pub fn main() anyerror!void {
         .resolveProvider = false,
         .triggerCharacters = &[_][]const u8{ ".", ":", "@" },
     };
+    // signature
+    dispatcher.registerRequest(&language_server, "textDocument/signatureHelp");
+    language_server.server_capabilities.signatureHelpProvider = .{
+        .triggerCharacters = &.{"("},
+        .retriggerCharacters = &.{","},
+    };
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }
