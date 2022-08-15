@@ -34,13 +34,13 @@ const Aggregator = struct {
     const Self = @This();
 
     arena: *std.heap.ArenaAllocator,
-    objects: std.StringHashMap(Object),
+    objects: std.StringArrayHashMap(Object),
     packages: std.StringHashMap([]const u8),
 
     fn init(arena: *std.heap.ArenaAllocator) Self {
         return Self{
             .arena = arena,
-            .objects = std.StringHashMap(Object).init(arena.allocator()),
+            .objects = std.StringArrayHashMap(Object).init(arena.allocator()),
             .packages = std.StringHashMap([]const u8).init(arena.allocator()),
         };
     }
@@ -194,7 +194,7 @@ pub fn main() !void {
         }
     }
 
-    try aggregator.writeTo(io.getStdOut().writer(), false);
+    try aggregator.writeTo(io.getStdOut().writer(), true);
 }
 
 fn fileSourcePath(source: std.build.FileSource) ?[]const u8 {
