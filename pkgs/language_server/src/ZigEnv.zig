@@ -101,6 +101,22 @@ fn getZigBuiltinAlloc(
     return path;
 }
 
+fn getFullpath(dir: FixedPath, path: []const u8) FixedPath
+{
+    if(path[0] == '/' or path[0] == '\\')
+    {
+        return FixedPath.fromFullpath(path);
+    }
+
+    if(path[1] == ':')
+    {
+        // maybe with windows drive letter
+        return FixedPath.fromFullpath(path);
+    }
+
+    return dir.child(path);
+}
+
 /// zig build-lib src/c.zig --z -I.
 /// info(compilation): C import output: src\zig-cache\o\4cf7e05ea3dd9caa12de6a7fa9206deb\cimport.zig
 const prefix = "info(compilation): C import output: ";
@@ -108,6 +124,7 @@ fn getZigCImport(
     allocator: std.mem.Allocator,
     zig_exe_path: FixedPath,
     compile_options: [][]const u8,
+    root: FixedPath,
 ) !FixedPath {
     // chroot root
     const source = try std.fmt.allocPrint(allocator, "c.zig", .{});
@@ -130,7 +147,7 @@ fn getZigCImport(
     while (it.next()) |line| {
         if (std.mem.startsWith(u8, line, prefix)) {
             logger.debug("{s}", .{line});
-            return FixedPath.fromFullpath(line[prefix.len..]);
+            return getFullpath(root, line[prefix.len..]);
         }
     }
     return error.NoCImport;
@@ -250,7 +267,7 @@ pub fn initPackagesAndCImport(self: Self, allocator: std.mem.Allocator, import_s
 
     // cimport
     const object = project.objects[0];
-    if (getZigCImport(allocator, self.exe, object.compile_options)) |path| {
+    if (getZigCImport(allocator, self.exe, object.compile_options, root)) |path| {
         // self.import_solver.c_import = path;
         try import_solver.push("c", path);
     } else |err| {
