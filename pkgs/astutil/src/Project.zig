@@ -4,6 +4,7 @@ const DocumentStore = @import("./DocumentStore.zig");
 const Document = @import("./Document.zig");
 const AstToken = @import("./AstToken.zig");
 const AstNode = @import("./AstNode.zig");
+const AstContainer = @import("./AstContainer.zig");
 const Declaration = @import("./declaration.zig").Declaration;
 const logger = std.log.scoped(.Project);
 const Self = @This();
@@ -78,10 +79,10 @@ pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
 
     // rhs
     const rhs = AstToken.init(&node.context.tree, data.rhs);
-    if (type_node.getMember(rhs.getText())) |field| {
-        return try self.resolveType(field);
+    if (AstContainer.init(type_node).getMember(rhs.getText())) |member| {
+        return try self.resolveType(member.node);
     } else {
-        logger.warn("field: {}.{s}", .{ lhs.getTag(), rhs.getText() });
+        logger.warn("member: {}.{s}", .{ lhs.getTag(), rhs.getText() });
         return error.FieldNotFound;
     }
 }

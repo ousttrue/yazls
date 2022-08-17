@@ -3,6 +3,7 @@ pub const AstToken = @import("./AstToken.zig");
 pub const AstNodeIterator = @import("./AstNodeIterator.zig");
 pub const AstNode = @import("./AstNode.zig");
 pub const AstContext = @import("./AstContext.zig");
+pub const AstContainer = @import("./AstContainer.zig");
 pub const Declaration = @import("./declaration.zig").Declaration;
 pub const FixedPath = @import("./FixedPath.zig");
 pub const PathPosition = @import("./PathPosition.zig");

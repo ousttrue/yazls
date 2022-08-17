@@ -4,6 +4,7 @@ const Project = astutil.Project;
 const Document = astutil.Document;
 const AstToken = astutil.AstToken;
 const AstNode = astutil.AstNode;
+const AstContainer = astutil.AstContainer;
 const PathPosition = astutil.PathPosition;
 const FixedPath = astutil.FixedPath;
 const Declaration = astutil.Declaration;
@@ -88,9 +89,9 @@ pub fn getGoto(
                                             switch (pp.getChildren(&buf)) {
                                                 .@"switch" => |full| {
                                                     const resolved = try project.resolveType(AstNode.init(node.context, full.ast.cond_expr));
-                                                    if(resolved.getMember(node.getMainToken().getText()))|member|
+                                                    if(AstContainer.init(resolved).getMember(node.getMainToken().getText()))|member|
                                                     {
-                                                        return member.gotoPosition();
+                                                        return member.node.gotoPosition();
                                                     }
                                                     return resolved.gotoPosition();
                                                 },

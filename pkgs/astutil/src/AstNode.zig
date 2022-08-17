@@ -116,10 +116,10 @@ pub fn getChildren(self: Self, buffer: []u32) AstNodeIterator.NodeChildren {
     return AstNodeIterator.NodeChildren.init(self.context.tree, self.index, buffer);
 }
 
-pub fn isChildrenType(self: Self, childrenType: AstNodeIterator.NodeChildren) bool {
+pub fn isChildrenTagName(self: Self, tagName: []const u8) bool {
     var buffer: [2]u32 = undefined;
     const children = self.getChildren(&buffer);
-    return children == childrenType;
+    return std.mem.eql(u8, @tagName(children), tagName);
 }
 
 pub fn getFnProto(self: Self, buffer: []u32) ?Ast.full.FnProto {
@@ -132,110 +132,6 @@ pub fn getFnProto(self: Self, buffer: []u32) ?Ast.full.FnProto {
             return null;
         },
     }
-}
-
-pub const Member = struct {
-    container: Self,
-    data: union(enum) {
-        field: Ast.full.ContainerField,
-        fn_decl: Ast.Node.Index,
-        var_decl: Ast.full.VarDecl,
-    },
-
-    pub fn getNode(self: @This()) Self {
-        return switch (self.data) {
-            .field => |field| init(self.container.context, field.ast.type_expr),
-            .fn_decl => |index| init(self.container.context, index),
-            .var_decl => |var_decl| init(self.container.context, var_decl.ast.init_node),
-        };
-    }
-};
-
-pub const ContainerIterator = struct {
-    context: *const AstContext,
-    full: Ast.full.ContainerDecl,
-    pos: u32 = 0,
-
-    pub fn init(context: *const AstContext, full: Ast.full.ContainerDecl) ContainerIterator {
-        return .{
-            .context = context,
-            .full = full,
-        };
-    }
-
-    pub fn next(self: *ContainerIterator) ?Self {
-        if (self.pos >= self.full.ast.members.len) {
-            return null;
-        }
-        const i = self.pos;
-        self.pos += 1;
-        return Self.init(self.context, self.full.ast.members[i]);
-    }
-};
-
-pub fn containerIterator(self: Self, buf: []u32) ?ContainerIterator {
-    switch (self.getChildren(buf)) {
-        .container_decl => |container_decl| {
-            return ContainerIterator.init(self.context, container_decl);
-        },
-        else => {
-            logger.err("not container: {}: {s}", .{ self.getTag(), self.getMainToken().getText() });
-            return null;
-        },
-    }
-}
-
-pub fn getMemberNameToken(self: Self) ?AstToken {
-    var buf2: [2]u32 = undefined;
-    switch (self.getChildren(&buf2)) {
-        .container_field => |container_field| {
-            return AstToken.init(&self.context.tree, container_field.ast.name_token);
-        },
-        .var_decl => |var_decl| {
-            return AstToken.init(&self.context.tree, var_decl.ast.mut_token + 1);
-        },
-        .fn_proto => |fn_proto| {
-            // extern
-            if (fn_proto.name_token) |name_token| {
-                return AstToken.init(&self.context.tree, name_token);
-            }
-        },
-        else => {
-            // fn_decl.lhs => fn_proto.name
-            if (self.getTag() == .fn_decl) {
-                const proto = Self.init(self.context, self.getData().lhs);
-                var buf3: [2]u32 = undefined;
-                if (proto.getFnProto(&buf3)) |fn_proto| {
-                    if (fn_proto.name_token) |name_token| {
-                        return AstToken.init(&self.context.tree, name_token);
-                    }
-                }
-            }
-        },
-    }
-    return null;
-}
-
-pub fn getMember(self: Self, name: []const u8) ?Self {
-    // var debug_buf: [1024]u8 = undefined;
-    // const allocator = std.heap.FixedBufferAllocator.init(&debug_buf).allocator();
-    // std.debug.print("\n{s}.{s}\n", .{ self.allocPrint(allocator) catch unreachable, name });
-
-    var buf: [2]u32 = undefined;
-    if (self.containerIterator(&buf)) |*it| {
-        while (it.next()) |child_node| {
-            if (child_node.getMemberNameToken()) |token| {
-                if (std.mem.eql(u8, token.getText(), name)) {
-                    return child_node;
-                }
-            } else {
-                logger.err("no member name", .{});
-            }
-        }
-    }
-
-    logger.err("not found: {s} from {s}", .{ name, self.getMainToken().getText() });
-    return null;
 }
 
 pub fn getContainerDecl(self: Self, buffer: []u32) ?Ast.full.ContainerDecl {
@@ -333,25 +229,10 @@ pub fn getContainerNodeForThis(self: Self) ?Self {
 }
 
 test "@This" {
-    const source =
-        \\const Self = @This();
-        \\
-        \\value: u32 = 0,
-        \\
-        \\fn init() Self
-        \\{
-        \\    return .{};
-        \\}
-        \\
-        \\fn get(self: Self) u32
-        \\{
-        \\    return self.value;
-        \\}
-    ;
+    const source = @embedFile("./test_source.zig");
     const allocator = std.testing.allocator;
     const text: [:0]const u8 = try allocator.dupeZ(u8, source);
     defer allocator.free(text);
-
     const context = try AstContext.new(allocator, .{}, text);
     defer context.delete();
 

@@ -7,6 +7,7 @@ const Document = astutil.Document;
 const Line = astutil.Line;
 const AstToken = astutil.AstToken;
 const AstNode = astutil.AstNode;
+const AstContainer = astutil.AstContainer;
 // const builtin_completions = @import("./builtin_completions.zig");
 const logger = std.log.scoped(.Completion);
 
@@ -31,25 +32,24 @@ pub fn completeContainerMember(
 
     var items = std.ArrayList(lsp.completion.CompletionItem).init(arena.allocator());
     var buf: [2]u32 = undefined;
-    if (type_node.containerIterator(&buf)) |*it| {
-        while (it.next()) |member| {
-            if (member.getMemberNameToken()) |name_token| {
-                const name = name_token.getText();
-                if (name[0] == '_') {
-                    continue;
-                }
+    var it = AstContainer.init(type_node).iterator(&buf);
+    while (it.next()) |member| {
+        if (member.name_token) |name_token| {
+            const name = name_token.getText();
+            if (name[0] == '_') {
+                continue;
+            }
 
-                var buf2: [2]u32 = undefined;
-                try items.append(.{
-                    .label = name,
-                    .kind = switch (member.getChildren(&buf2)) {
-                        .var_decl => .Value,
-                        .container_field => .Property,
-                        else => .Method,
-                    },
-                });
-            } else {}
-        }
+            try items.append(.{
+                .label = name,
+                .kind = switch (member.kind) {
+                    .field => .Property,
+                    .var_decl => .Value,
+                    .fn_proto, .fn_decl => .Method,
+                    .test_decl => .Unit,
+                },
+            });
+        } else {}
     }
 
     return items.toOwnedSlice();
@@ -175,11 +175,11 @@ pub fn getCompletion(
         if (std.mem.eql(u8, trigger, ".")) {
             logger.debug("trigger '.' => field_access", .{});
             return try completeContainerMember(arena, project, doc, token);
-        } 
+        }
         // else if (std.mem.eql(u8, trigger, "@")) {
         //     // logger.debug("trigger '@' => builtin", .{});
         //     return builtin_completions.completeBuiltin();
-        // } 
+        // }
         else {
             logger.debug("trigger '{s}'", .{trigger});
             return &[_]lsp.completion.CompletionItem{};

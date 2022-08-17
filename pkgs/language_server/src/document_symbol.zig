@@ -4,6 +4,7 @@ const astutil = @import("astutil");
 const Document = astutil.Document;
 const Line = astutil.Line;
 const AstNode = astutil.AstNode;
+const AstContainer = astutil.AstContainer;
 const lsp_util = @import("./lsp_util.zig");
 const logger = std.log.scoped(.DocumentSymbol);
 
@@ -61,53 +62,50 @@ const SymbolTree = struct {
         encoding: Line.Encoding,
     ) anyerror!void {
         var buf2: [2]u32 = undefined;
-        if (container_node.containerIterator(&buf2)) |*it| {
-            while (it.next()) |member_node| {
-                // member_node: var_decl / container_field / fn_decl / test_decl
-                if (member_node.getMemberNameToken()) |name_token| {
-                    // member_node: var_decl / container_field / fn_decl
-                    const range = try lsp_util.getRange(doc, member_node.getMainToken().getLoc(), encoding);
-                    var item = lsp.document_symbol.DocumentSymbol{
-                        .name = name_token.getText(),
-                        .kind = getItemTag(member_node),
-                        .range = range,
-                        .selectionRange = range,
-                    };
-                    var is_import = false;
-                    if (member_node.getTypeNode()) |type_node| {
-                        var buf: [2]u32 = undefined;
-                        switch (type_node.getChildren(&buf)) {
-                            .builtin_call => {
-                                if (std.mem.eql(u8, type_node.getMainToken().getText(), "@import")) {
-                                    is_import = true;
-                                    item.kind = .File;
-                                }
-                            },
-                            .container_decl => {
-                                if (std.mem.eql(u8, type_node.getMainToken().getText(), "enum")) {
-                                    item.kind = .Enum;
-                                }
-                                var children = std.ArrayList(lsp.document_symbol.DocumentSymbol).init(arena.allocator());
-                                try self.traverse(&children, arena, doc, type_node, encoding);
-                                item.children = children.toOwnedSlice();
-                            },
-                            else => {},
-                        }
-                    } else {
-                        if (item.kind != .Method) {
-                            item.kind = .EnumMember;
-                        }
+        var it = AstContainer.init(container_node).iterator(&buf2);
+        while (it.next()) |member| {
+            // member_node: var_decl / container_field / fn_decl / test_decl
+            if (member.name_token) |name_token| {
+                // member_node: var_decl / container_field / fn_decl
+                const range = try lsp_util.getRange(doc, name_token.getLoc(), encoding);
+                var item = lsp.document_symbol.DocumentSymbol{
+                    .name = name_token.getText(),
+                    .kind = getItemTag(member.node),
+                    .range = range,
+                    .selectionRange = range,
+                };
+                var is_import = false;
+                if (member.node.getTypeNode()) |type_node| {
+                    var buf: [2]u32 = undefined;
+                    switch (type_node.getChildren(&buf)) {
+                        .builtin_call => {
+                            if (std.mem.eql(u8, type_node.getMainToken().getText(), "@import")) {
+                                is_import = true;
+                                item.kind = .File;
+                            }
+                        },
+                        .container_decl => {
+                            if (std.mem.eql(u8, type_node.getMainToken().getText(), "enum")) {
+                                item.kind = .Enum;
+                            }
+                            var children = std.ArrayList(lsp.document_symbol.DocumentSymbol).init(arena.allocator());
+                            try self.traverse(&children, arena, doc, type_node, encoding);
+                            item.children = children.toOwnedSlice();
+                        },
+                        else => {},
                     }
-
-                    if (is_import) {
-                        try self.imports.append(item);
-                    } else {
-                        try current.append(item);
+                } else {
+                    if (item.kind != .Method) {
+                        item.kind = .EnumMember;
                     }
                 }
+
+                if (is_import) {
+                    try self.imports.append(item);
+                } else {
+                    try current.append(item);
+                }
             }
-        } else {
-            logger.err("not container", .{});
         }
     }
 };
