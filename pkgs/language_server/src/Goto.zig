@@ -89,9 +89,10 @@ pub fn getGoto(
                                             switch (pp.getChildren(&buf)) {
                                                 .@"switch" => |full| {
                                                     const resolved = try project.resolveType(AstNode.init(node.context, full.ast.cond_expr));
-                                                    if(AstContainer.init(resolved).getMember(node.getMainToken().getText()))|member|
-                                                    {
-                                                        return member.node.gotoPosition();
+                                                    if (AstContainer.init(resolved)) |container| {
+                                                        if (container.getMember(node.getMainToken().getText())) |member| {
+                                                            return member.node.gotoPosition();
+                                                        }
                                                     }
                                                     return resolved.gotoPosition();
                                                 },

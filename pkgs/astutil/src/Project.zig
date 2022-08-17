@@ -79,12 +79,14 @@ pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
 
     // rhs
     const rhs = AstToken.init(&node.context.tree, data.rhs);
-    if (AstContainer.init(type_node).getMember(rhs.getText())) |member| {
-        return try self.resolveType(member.node);
-    } else {
-        logger.warn("member: {}.{s}", .{ lhs.getTag(), rhs.getText() });
-        return error.FieldNotFound;
+    if (AstContainer.init(type_node)) |container| {
+        if (container.getMember(rhs.getText())) |member| {
+            return try self.resolveType(member.node);
+        }
     }
+
+    logger.warn("member: {}.{s}", .{ lhs.getTag(), rhs.getText() });
+    return error.FieldNotFound;
 }
 
 pub fn resolveType(self: Self, node: AstNode) anyerror!AstNode {

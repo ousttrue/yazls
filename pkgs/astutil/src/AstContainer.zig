@@ -114,11 +114,13 @@ const Self = @This();
 
 node: AstNode,
 
-pub fn init(node: AstNode) Self {
-    std.debug.assert(node.isChildrenTagName("container_decl"));
-    return Self{
-        .node = node,
-    };
+pub fn init(node: AstNode) ?Self {
+    return if (node.isChildrenTagName("container_decl"))
+        Self{
+            .node = node,
+        }
+    else
+        null;
 }
 
 pub fn iterator(self: Self, buf: []u32) ContainerIterator {
@@ -151,7 +153,6 @@ test {
     defer context.delete();
 
     const root = Self.init(AstNode.init(context, 0));
-
     try std.testing.expectEqual(root.getMember("Self").?.kind, .var_decl);
     try std.testing.expectEqual(root.getMember("value").?.kind, .field);
     try std.testing.expectEqual(root.getMember("init").?.kind, .fn_decl);

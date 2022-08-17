@@ -2,6 +2,7 @@ const std = @import("std");
 const AstToken = @import("./AstToken.zig");
 const AstNode = @import("./AstNode.zig");
 const AstContext = @import("./AstContext.zig");
+const AstContainer = @import("./AstContainer.zig");
 
 const Arg = struct {
     name: []const u8,
@@ -111,4 +112,23 @@ pub fn allocPrint(self: Self, allocator: std.mem.Allocator) ![]const u8 {
     }
 
     return buf.toOwnedSlice();
+}
+
+test {
+    const source = @embedFile("test_source.zig");
+    const allocator = std.testing.allocator;
+    const text: [:0]const u8 = try allocator.dupeZ(u8, source);
+    defer allocator.free(text);
+    const context = try AstContext.new(allocator, .{}, text);
+    defer context.delete();
+
+    const root = AstContainer.init(AstNode.init(context, 0));
+    _ = root;
+    // const init = root.getMember("init").?;
+    // const signature = Self.init(init.node);
+
+    // try std.testing.expectEqual(root.getMember("Self").?.kind, .var_decl);
+    // try std.testing.expectEqual(root.getMember("value").?.kind, .field);
+    // try std.testing.expectEqual(root.getMember("\"empty_test\"").?.kind, .test_decl);
+    // try std.testing.expectEqual(root.getMember("external_func").?.kind, .fn_proto);
 }

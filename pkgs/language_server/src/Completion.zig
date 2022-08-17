@@ -32,24 +32,27 @@ pub fn completeContainerMember(
 
     var items = std.ArrayList(lsp.completion.CompletionItem).init(arena.allocator());
     var buf: [2]u32 = undefined;
-    var it = AstContainer.init(type_node).iterator(&buf);
-    while (it.next()) |member| {
-        if (member.name_token) |name_token| {
-            const name = name_token.getText();
-            if (name[0] == '_') {
-                continue;
-            }
 
-            try items.append(.{
-                .label = name,
-                .kind = switch (member.kind) {
-                    .field => .Property,
-                    .var_decl => .Value,
-                    .fn_proto, .fn_decl => .Method,
-                    .test_decl => .Unit,
-                },
-            });
-        } else {}
+    if (AstContainer.init(type_node)) |container| {
+        var it = container.iterator(&buf);
+        while (it.next()) |member| {
+            if (member.name_token) |name_token| {
+                const name = name_token.getText();
+                if (name[0] == '_') {
+                    continue;
+                }
+
+                try items.append(.{
+                    .label = name,
+                    .kind = switch (member.kind) {
+                        .field => .Property,
+                        .var_decl => .Value,
+                        .fn_proto, .fn_decl => .Method,
+                        .test_decl => .Unit,
+                    },
+                });
+            } else {}
+        }
     }
 
     return items.toOwnedSlice();
