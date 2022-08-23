@@ -23,7 +23,7 @@ pub fn getSignature(
     switch (node.getChildren(&buf)) {
         .call => |full| {
             const fn_node = AstNode.init(node.context, full.ast.fn_expr);
-            const resolved = try project.resolveType(fn_node);
+            const resolved = try project.resolveType(arena.allocator(), fn_node);
             return try FunctionSignature.fromNode(
                 arena.allocator(),
                 resolved,

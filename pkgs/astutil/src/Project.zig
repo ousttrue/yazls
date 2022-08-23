@@ -6,6 +6,7 @@ const AstToken = @import("./AstToken.zig");
 const AstNode = @import("./AstNode.zig");
 const AstContainer = @import("./AstContainer.zig");
 const Declaration = @import("./declaration.zig").Declaration;
+const TypeResolver = @import("./TypeResolver.zig");
 const logger = std.log.scoped(.Project);
 const Self = @This();
 
@@ -61,9 +62,8 @@ pub fn resolveImport(self: Self, node: AstNode) !?AstNode {
     }
 }
 
-pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
-    if(node.getTag() != .field_access)
-    {
+pub fn resolveFieldAccess(self: Self, allocator: std.mem.Allocator, node: AstNode) anyerror!AstNode {
+    if (node.getTag() != .field_access) {
         return error.NotFieldAccess;
     }
     const data = node.getData();
@@ -72,10 +72,10 @@ pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
     const lhs = AstNode.init(node.context, data.lhs);
     var buf: [2]u32 = undefined;
     const type_node = switch (lhs.getChildren(&buf)) {
-        .call, .builtin_call => try self.resolveType(lhs),
+        .call, .builtin_call => try self.resolveType(allocator, lhs),
         else => switch (lhs.getTag()) {
-            .field_access => try self.resolveFieldAccess(lhs),
-            .identifier => try self.resolveType(lhs),
+            .field_access => try self.resolveFieldAccess(allocator, lhs),
+            .identifier => try self.resolveType(allocator, lhs),
             else => return error.UnknownLhs,
         },
     };
@@ -84,7 +84,7 @@ pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
     const rhs = AstToken.init(&node.context.tree, data.rhs);
     if (AstContainer.init(type_node)) |container| {
         if (container.getMember(rhs.getText())) |member| {
-            return try self.resolveType(member.node);
+            return try self.resolveType(allocator, member.node);
         }
     }
 
@@ -92,82 +92,9 @@ pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
     return error.FieldNotFound;
 }
 
-pub fn resolveType(self: Self, node: AstNode) anyerror!AstNode {
-    var buf: [2]u32 = undefined;
-    switch (node.getChildren(&buf)) {
-        .container_decl => {
-            return node;
-        },
-        .var_decl => |var_decl| {
-            if (var_decl.ast.init_node != 0) {
-                return self.resolveType(AstNode.init(node.context, var_decl.ast.init_node));
-            } else {
-                return error.NoInit;
-            }
-        },
-        .container_field => |full| {
-            return self.resolveType(AstNode.init(node.context, full.ast.type_expr));
-        },
-        .builtin_call => {
-            const builtin_name = node.getMainToken().getText();
-            if (std.mem.eql(u8, builtin_name, "@import")) {
-                if (try self.resolveImport(node)) |imported| {
-                    return imported;
-                } else {
-                    return error.FailImport;
-                }
-            } else if (std.mem.eql(u8, builtin_name, "@This")) {
-                //
-                if (node.getContainerNodeForThis()) |container| {
-                    return container;
-                } else {
-                    return error.NoConainerDecl;
-                }
-            } else if (std.mem.eql(u8, builtin_name, "@cImport")) {
-                return try self.resolveCImport();
-            } else {
-                logger.err("{s}", .{builtin_name});
-                return error.UnknownBuiltin;
-            }
-        },
-        .ptr_type => |ptr_type| {
-            return self.resolveType(AstNode.init(node.context, ptr_type.ast.child_type));
-        },
-        .call => |call| {
-            const fn_decl = try self.resolveType(AstNode.init(node.context, call.ast.fn_expr));
-            const fn_node = AstNode.init(fn_decl.context, fn_decl.getData().lhs);
-            var buf2: [2]u32 = undefined;
-            if (fn_node.getFnProto(&buf2)) |fn_proto| {
-                return self.resolveType(AstNode.init(fn_node.context, fn_proto.ast.return_type));
-            } else {
-                return error.FnProtoNotFound;
-            }
-        },
-        else => {
-            switch (node.getTag()) {
-                .identifier => {
-                    if (Declaration.find(node)) |decl| {
-                        const type_node = try decl.getTypeNode();
-                        return self.resolveType(type_node);
-                    } else {
-                        return error.NoDecl;
-                    }
-                },
-                .field_access => {
-                    const field = try self.resolveFieldAccess(node);
-                    return self.resolveType(field);
-                },
-                .optional_type, .@"try", .@"orelse", .array_access => {
-                    return self.resolveType(AstNode.init(node.context, node.getData().lhs));
-                },
-                .error_union => {
-                    return self.resolveType(AstNode.init(node.context, node.getData().rhs));
-                },
-                else => {
-                    node.debugPrint();
-                    return node;
-                },
-            }
-        },
-    }
+pub fn resolveType(self: Self, allocator: std.mem.Allocator, node: AstNode) !AstNode {
+    var resolver = TypeResolver.init(allocator);
+    defer resolver.deinit();
+    const resolved = try resolver.resolve(self, node);
+    return resolved.node;
 }

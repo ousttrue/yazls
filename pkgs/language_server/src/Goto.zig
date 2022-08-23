@@ -75,7 +75,7 @@ pub fn getGoto(
                             }
                         },
                         .field_access => {
-                            const type_node = try project.resolveFieldAccess(node);
+                            const type_node = try project.resolveFieldAccess(arena.allocator(), node);
                             return type_node.getPosition();
                         },
                         .fn_decl => {
@@ -88,7 +88,7 @@ pub fn getGoto(
                                         if (parent.getParent()) |pp| {
                                             switch (pp.getChildren(&buf)) {
                                                 .@"switch" => |full| {
-                                                    const resolved = try project.resolveType(AstNode.init(node.context, full.ast.cond_expr));
+                                                    const resolved = try project.resolveType(arena.allocator(), AstNode.init(node.context, full.ast.cond_expr));
                                                     if (AstContainer.init(resolved)) |container| {
                                                         if (container.getMember(node.getMainToken().getText())) |member| {
                                                             return member.node.gotoPosition();

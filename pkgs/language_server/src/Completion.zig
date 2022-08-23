@@ -27,7 +27,7 @@ pub fn completeContainerMember(
     // token.debugPrint();
     const node = AstNode.fromTokenIndex(doc.ast_context, token.index);
     // node.debugPrint();
-    const type_node = try project.resolveType(node);
+    const type_node = try project.resolveType(arena.allocator(), node);
     // type_node.debugPrint();
 
     var items = std.ArrayList(lsp.completion.CompletionItem).init(arena.allocator());

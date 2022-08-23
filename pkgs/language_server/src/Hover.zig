@@ -14,16 +14,17 @@ text: []const u8,
 loc: ?std.zig.Token.Loc = null,
 
 fn resolve(
+    arena: *std.heap.ArenaAllocator,
     project: Project,
     node: AstNode,
 ) ?AstNode {
-    if (project.resolveFieldAccess(node)) |resolved| {
+    if (project.resolveFieldAccess(arena.allocator(), node)) |resolved| {
         return resolved;
     } else |_| {
         // not field
     }
 
-    if (project.resolveType(node)) |resolved| {
+    if (project.resolveType(arena.allocator(), node)) |resolved| {
         return resolved;
     } else |_| {
         // no type
@@ -69,7 +70,7 @@ pub fn getHover(
             //         .text = text_buffer.items,
             //     };
             // },
-            if (resolve(project, node)) |resolved| {
+            if (resolve(arena, project, node)) |resolved| {
                 if (FunctionSignature.fromNode(allocator, resolved, 0)) |signature| {
                     const text = try signature.allocPrintSignature(allocator);
                     try w.print("\n```zig\n{s}\n```\n", .{text});
