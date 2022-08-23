@@ -27,6 +27,39 @@ pub fn fromCwd() !Self {
     return self;
 }
 
+pub fn findZig(allocator: std.mem.Allocator) !Self {
+    const env_path = std.process.getEnvVarOwned(allocator, "PATH") catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => {
+            return error.NoPathEnv;
+        },
+        else => return err,
+    };
+    defer allocator.free(env_path);
+
+    const exe_extension = builtin.target.exeFileExt();
+    const zig_exe = try std.fmt.allocPrint(allocator, "zig{s}", .{exe_extension});
+    defer allocator.free(zig_exe);
+
+    var it = std.mem.tokenize(u8, env_path, &[_]u8{std.fs.path.delimiter});
+    while (it.next()) |path| {
+        if (builtin.os.tag == .windows) {
+            if (std.mem.indexOfScalar(u8, path, '/') != null) continue;
+        }
+        const full_path = try std.fs.path.join(allocator, &[_][]const u8{ path, zig_exe });
+        defer allocator.free(full_path);
+
+        if (!std.fs.path.isAbsolute(full_path)) continue;
+
+        const file = std.fs.openFileAbsolute(full_path, .{}) catch continue;
+        defer file.close();
+        const stat = file.stat() catch continue;
+        if (stat.kind == .Directory) continue;
+
+        return fromFullpath(full_path);
+    }
+    return error.ZigNotFound;
+}
+
 pub fn fromSelfExe() !Self {
     var exe_dir_bytes: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     const exe_dir_path = try std.fs.selfExeDirPath(&exe_dir_bytes);
@@ -242,4 +275,12 @@ pub fn allocToUri(self: Self, allocator: std.mem.Allocator) ![]const u8 {
     }
 
     return buf.toOwnedSlice();
+}
+
+pub fn getName(self: Self) []const u8 {
+    if (std.mem.lastIndexOfScalar(u8, self.slice(), '/')) |pos| {
+        return self.slice()[pos + 1 ..];
+    } else {
+        return self.slice();
+    }
 }

@@ -14,6 +14,7 @@ pub const Document = @import("./Document.zig");
 pub const DocumentStore = @import("./DocumentStore.zig");
 pub const Project = @import("./Project.zig");
 pub const FunctionSignature = @import("./FunctionSignature.zig");
+pub const TypeResolver = @import("./TypeResolver.zig");
 
 test {
     // To run nested container tests, either, call `refAllDecls` which will

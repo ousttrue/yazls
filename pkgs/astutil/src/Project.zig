@@ -62,7 +62,10 @@ pub fn resolveImport(self: Self, node: AstNode) !?AstNode {
 }
 
 pub fn resolveFieldAccess(self: Self, node: AstNode) anyerror!AstNode {
-    std.debug.assert(node.getTag() == .field_access);
+    if(node.getTag() != .field_access)
+    {
+        return error.NotFieldAccess;
+    }
     const data = node.getData();
 
     // lhs

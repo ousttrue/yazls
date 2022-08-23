@@ -13,6 +13,25 @@ const Self = @This();
 text: []const u8,
 loc: ?std.zig.Token.Loc = null,
 
+fn resolve(
+    project: Project,
+    node: AstNode,
+) ?AstNode {
+    if (project.resolveFieldAccess(node)) |resolved| {
+        return resolved;
+    } else |_| {
+        // not field
+    }
+
+    if (project.resolveType(node)) |resolved| {
+        return resolved;
+    } else |_| {
+        // no type
+    }
+
+    return null;
+}
+
 pub fn getHover(
     arena: *std.heap.ArenaAllocator,
     project: Project,
@@ -50,54 +69,22 @@ pub fn getHover(
             //         .text = text_buffer.items,
             //     };
             // },
-            switch (node.getTag()) {
-                .identifier => {
-                    if (Declaration.find(node)) |decl| {
-                        const text = try decl.allocPrint(allocator);
-                        try w.print("{s}", .{text});
-                        switch (decl) {
-                            .local => |local| {
-                                return Self{
-                                    .text = text_buffer.items,
-                                    .loc = local.name_token.getLoc(),
-                                };
-                            },
-                            .container => |container| {
-                                return Self{
-                                    .text = text_buffer.items,
-                                    .loc = container.name_token.getLoc(),
-                                };
-                            },
-                            .primitive => {},
-                        }
-                    } else {
-                        logger.debug("identifier: {s}: decl not found", .{token.getText()});
-                    }
-                },
-                .field_access => {
-                    const resolved = try project.resolveFieldAccess(node);
-                    if (FunctionSignature.fromNode(allocator, resolved, 0)) |signature| {
-                        const text = try signature.allocPrintSignature(allocator);
-                        try w.print("{s}", .{text});
-                        return Self{
-                            .text = text_buffer.items,
-                        };
-                    } else |_| {
-                        const text = try resolved.allocPrint(allocator);
-                        try w.print("{s}", .{text});
-                        return Self{
-                            .text = text_buffer.items,
-                        };
-                    }
-                },
-                else => {
-                    // const var_type = try VarType.init(project, node);
-                    // const text = try var_type.allocPrint(allocator);
-                    // try w.print("var_type: {s}", .{text});
-                    // return Self{
-                    //     .text = text_buffer.items,
-                    // };
-                },
+            if (resolve(project, node)) |resolved| {
+                if (FunctionSignature.fromNode(allocator, resolved, 0)) |signature| {
+                    const text = try signature.allocPrintSignature(allocator);
+                    try w.print("\n```zig\n{s}\n```\n", .{text});
+                    return Self{
+                        .text = text_buffer.items,
+                    };
+                } else |_| {
+                    const text = try resolved.allocPrint(allocator);
+                    try w.print("{s}", .{text});
+                    return Self{
+                        .text = text_buffer.items,
+                    };
+                }
+            } else {
+                try w.print("no resolved", .{});
             }
         },
         else => {},

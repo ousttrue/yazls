@@ -62,7 +62,8 @@ fn printRec(self: Self, w: anytype) std.mem.Allocator.Error!void {
 
 pub fn allocPrint(self: Self, allocator: std.mem.Allocator) ![]const u8 {
     if (self.index == 0) {
-        return "[root]";
+        // return "[root]";
+        return self.context.path.getName();
     }
 
     var buffer = std.ArrayList(u8).init(allocator);
