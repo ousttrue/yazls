@@ -77,7 +77,7 @@ pub fn getHover(
                 .field_access => {
                     const resolved = try project.resolveFieldAccess(node);
                     if (FunctionSignature.fromNode(allocator, resolved, 0)) |signature| {
-                        const text = try signature.allocPrint(allocator);
+                        const text = try signature.allocPrintSignature(allocator);
                         try w.print("{s}", .{text});
                         return Self{
                             .text = text_buffer.items,

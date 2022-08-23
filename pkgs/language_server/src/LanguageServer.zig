@@ -621,21 +621,21 @@ pub fn @"textDocument/signatureHelp"(
     };
 
     var args = std.ArrayList(lsp.signature_help.ParameterInformation).init(arena.allocator());
-    for (signature.args.items) |arg| {
+    for (signature.params) |param| {
         try args.append(.{
-            .label = arg.name,
+            .label = param.getName(),
             .documentation = .{
                 .kind = .Markdown,
-                .value = arg.document,
+                .value = param.type_node.getText(),
             },
         });
     }
     var signatures: [1]lsp.signature_help.SignatureInformation = .{
         .{
-            .label = signature.name,
+            .label = signature.getName(),
             .documentation = .{
                 .kind = .Markdown,
-                .value = signature.document,
+                .value = "",
             },
             .parameters = args.items,
             .activeParameter = signature.active_param,

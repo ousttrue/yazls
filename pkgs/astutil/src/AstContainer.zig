@@ -44,7 +44,7 @@ pub const Member = struct {
         test_decl,
     },
 
-    pub fn init(node: AstNode) Member {
+    pub fn init(node: AstNode) ?Member {
         var buf: [2]u32 = undefined;
         return switch (node.getChildren(&buf)) {
             .container_field => |container_field| .{
@@ -75,7 +75,7 @@ pub const Member = struct {
                 },
                 else => {
                     logger.err("{}", .{node.getTag()});
-                    unreachable;
+                    return null;
                 },
             },
         };
@@ -152,7 +152,7 @@ test {
     const context = try AstContext.new(allocator, .{}, text);
     defer context.delete();
 
-    const root = Self.init(AstNode.init(context, 0));
+    const root = Self.init(AstNode.init(context, 0)).?;
     try std.testing.expectEqual(root.getMember("Self").?.kind, .var_decl);
     try std.testing.expectEqual(root.getMember("value").?.kind, .field);
     try std.testing.expectEqual(root.getMember("init").?.kind, .fn_decl);

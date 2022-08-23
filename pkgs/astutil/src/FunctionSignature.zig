@@ -4,78 +4,72 @@ const AstNode = @import("./AstNode.zig");
 const AstContext = @import("./AstContext.zig");
 const AstContainer = @import("./AstContainer.zig");
 
-const Arg = struct {
-    name: []const u8,
-    document: []const u8,
+const Param = struct {
+    name_token: ?AstToken,
+    type_node: AstNode,
+
+    pub fn getName(self: @This()) []const u8 {
+        return if (self.name_token) |name_token| name_token.getText() else "_";
+    }
 };
 
 const Self = @This();
 
-name: []const u8,
-document: []const u8,
-args: std.ArrayList(Arg),
-return_type: []const u8,
+allocator: std.mem.Allocator,
+name_token: ?AstToken,
+params: []const Param,
 active_param: u32 = 0,
+return_type_node: AstNode,
 
 pub fn init(
-    allocator: std.mem.Allocator,
-    name: []const u8,
-    document: []const u8,
-    return_type: []const u8,
-    active_param: u32,
-) Self {
-    return Self{
-        .name = name,
-        .document = document,
-        .args = std.ArrayList(Arg).init(allocator),
-        .return_type = return_type,
-        .active_param = active_param,
-    };
-}
-
-pub fn deinit(self: Self) void {
-    self.args.deinit();
-}
-
-fn fromFnProto(
     allocator: std.mem.Allocator,
     context: *const AstContext,
     fn_proto: std.zig.Ast.full.FnProto,
     active_param: u32,
-) !Self {
-    const return_type_node = AstNode.init(context, fn_proto.ast.return_type);
-
-    // signature
-    var signature = std.ArrayList(u8).init(allocator);
-    const w = signature.writer();
-    try w.print("fn {s}(", .{AstToken.init(&context.tree, fn_proto.name_token.?).getText()});
-    {
-        var it = fn_proto.iterate(&context.tree);
-        var i: u32 = 0;
-        while (it.next()) |param| : (i += 1) {
-            if (i > 0) {
-                try w.print(", ", .{});
-            }
-            try w.print("{s}: {s}", .{
-                AstToken.init(&context.tree, param.name_token.?).getText(),
-                AstNode.init(context, param.type_expr).getText(),
-            });
-        }
-    }
-    try w.print(") {s};", .{return_type_node.getText()});
-    //
-    //
-    var self = init(allocator, signature.items, "", "", active_param);
+) Self {
+    var params = std.ArrayList(Param).init(allocator);
     {
         var it = fn_proto.iterate(&context.tree);
         while (it.next()) |param| {
-            try self.args.append(.{
-            .name = AstToken.init(&context.tree, param.name_token.?).getText(),
-            .document = AstNode.init(context, param.type_expr).getText(),
-            });
+            params.append(.{
+                .name_token = if (param.name_token) |name_token| AstToken.init(&context.tree, name_token) else null,
+                .type_node = AstNode.init(context, param.type_expr),
+            }) catch unreachable;
         }
     }
-    return self;
+
+    return Self{
+        .allocator = allocator,
+        .name_token = if (fn_proto.name_token) |name_token| AstToken.init(&context.tree, name_token) else null,
+        .params = params.toOwnedSlice(),
+        .active_param = active_param,
+        .return_type_node = AstNode.init(context, fn_proto.ast.return_type),
+    };
+}
+
+pub fn deinit(self: Self) void {
+    self.allocator.free(self.params);
+}
+
+pub fn getName(self: Self) []const u8 {
+    return if (self.name_token) |name_token| name_token.getText() else "";
+}
+
+pub fn allocPrintSignature(self: Self, allocator: std.mem.Allocator) ![]const u8 {
+    var signature = std.ArrayList(u8).init(allocator);
+    const w = signature.writer();
+    try w.print("fn {s}(", .{self.getName()});
+    for (self.params) |param, i| {
+        if (i > 0) {
+            try w.print(", ", .{});
+        }
+        try w.print("{s}: {s}", .{
+            param.getName(),
+            param.type_node.getText(),
+        });
+    }
+    try w.print(") {s};", .{self.return_type_node.getText()});
+    return signature.toOwnedSlice();
 }
 
 pub fn fromNode(allocator: std.mem.Allocator, node: AstNode, active_param: u32) !Self {
@@ -83,7 +77,7 @@ pub fn fromNode(allocator: std.mem.Allocator, node: AstNode, active_param: u32) 
     switch (node.getChildren(&buf)) {
         // extern
         .fn_proto => |full| {
-            return fromFnProto(allocator, node.context, full, active_param);
+            return init(allocator, node.context, full, active_param);
         },
         else => {
             switch (node.getTag()) {
@@ -91,7 +85,7 @@ pub fn fromNode(allocator: std.mem.Allocator, node: AstNode, active_param: u32) 
                     // fn
                     const fn_proto_node = AstNode.init(node.context, node.getData().lhs);
                     const fn_proto = fn_proto_node.getFnProto(&buf) orelse return error.NoFnProto;
-                    return fromFnProto(allocator, node.context, fn_proto, active_param);
+                    return init(allocator, node.context, fn_proto, active_param);
                 },
                 else => {
                     return error.FnDeclNorFnProto;
@@ -99,19 +93,6 @@ pub fn fromNode(allocator: std.mem.Allocator, node: AstNode, active_param: u32) 
             }
         },
     }
-}
-
-pub fn allocPrint(self: Self, allocator: std.mem.Allocator) ![]const u8 {
-    var buf = std.ArrayList(u8).init(allocator);
-    const w = buf.writer();
-
-    try w.print("## {s}\n\n", .{self.name});
-
-    if (self.document.len > 0) {
-        try w.print("{s}", .{self.document});
-    }
-
-    return buf.toOwnedSlice();
 }
 
 test {
@@ -122,13 +103,13 @@ test {
     const context = try AstContext.new(allocator, .{}, text);
     defer context.delete();
 
-    const root = AstContainer.init(AstNode.init(context, 0));
-    _ = root;
-    // const init = root.getMember("init").?;
-    // const signature = Self.init(init.node);
+    const root = AstContainer.init(AstNode.init(context, 0)).?;
 
-    // try std.testing.expectEqual(root.getMember("Self").?.kind, .var_decl);
-    // try std.testing.expectEqual(root.getMember("value").?.kind, .field);
-    // try std.testing.expectEqual(root.getMember("\"empty_test\"").?.kind, .test_decl);
-    // try std.testing.expectEqual(root.getMember("external_func").?.kind, .fn_proto);
+    const init_member = root.getMember("init").?;
+    try std.testing.expectEqualStrings("init", init_member.name_token.?.getText());
+
+    const signature = try fromNode(allocator, init_member.node, 0);
+    defer signature.deinit();
+    try std.testing.expectEqualStrings("init", signature.getName());
+    try std.testing.expectEqualStrings("Self", signature.return_type_node.getText());
 }
