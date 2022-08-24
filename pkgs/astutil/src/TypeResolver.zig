@@ -19,6 +19,7 @@ pub const AstType = struct {
     node: AstNode,
     kind: union(enum) {
         primitive: PrimitiveType,
+        string_literal,
         container,
         fn_decl,
         fn_proto,
@@ -218,7 +219,13 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                             .kind = .fn_decl,
                         };
                     },
-                    //         .multiline_string_literal, .enum_literal, .error_value => {
+                    .string_literal, .multiline_string_literal => {
+                        return AstType{
+                            .node = node,
+                            .kind = .string_literal,
+                        };
+                    },
+                    //         , .enum_literal, .error_value => {
                     //             return AstType{
                     //                 .node = node,
                     //                 .kind = .literal,
