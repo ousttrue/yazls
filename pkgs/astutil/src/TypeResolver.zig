@@ -10,6 +10,7 @@ const FixedPath = @import("./FixedPath.zig");
 const Declaration = @import("./declaration.zig").Declaration;
 const FunctionSignature = @import("./FunctionSignature.zig");
 const PrimitiveType = @import("./primitives.zig").PrimitiveType;
+const AstNodeIterator = @import("./AstNodeIterator.zig");
 const logger = std.log.scoped(.TypeResolver);
 const Self = @This();
 
@@ -46,6 +47,22 @@ fn contains(items: []const AstNode, find: AstNode) bool {
         }
     }
     return false;
+}
+
+fn getReturnNode(node: AstNode) ?AstNode {
+    if (node.getTag() == .@"return") {
+        return AstNode.init(node.context, node.getData().lhs);
+    }
+
+    var it = AstNodeIterator.init(node.index);
+    _ =  async it.iterateAsync(&node.context.tree);
+    while (it.value) |value| : (it.next()) {
+        if (getReturnNode(AstNode.init(node.context, value))) |found| {
+            return found;
+        }
+    }
+
+    return null;
 }
 
 pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
@@ -88,7 +105,17 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
             var buf2: [2]u32 = undefined;
             switch (fn_node.getChildren(&buf2)) {
                 .fn_proto => |fn_proto| {
-                    return self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
+                    const return_type = try self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
+                    switch (return_type.kind) {
+                        .primitive => |prim| {
+                            if (prim == PrimitiveType.type) {
+                                if (getReturnNode(fn_decl.node)) |return_node| {
+                                    return try self.resolve(project, return_node);
+                                }
+                            }
+                        },
+                        else => {},
+                    }
                 },
                 else => {
                     return error.FnProtoNotFound;

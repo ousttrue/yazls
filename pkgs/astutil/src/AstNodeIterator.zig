@@ -9,7 +9,7 @@ pub const Switch = struct {
         cases: []const Ast.Node.Index,
     };
 
-    pub fn init(tree: Ast, idx: Ast.Node.Index) Switch {
+    pub fn init(tree: *const Ast, idx: Ast.Node.Index) Switch {
         const data = tree.nodes.items(.data);
         const node_data = data[idx];
         const extra = tree.extraData(node_data.rhs, Ast.Node.SubRange);
@@ -28,7 +28,7 @@ pub const Block = struct {
         statements: []const Ast.Node.Index,
     };
 
-    pub fn init(tree: Ast, idx: Ast.Node.Index) Block {
+    pub fn init(tree: *const Ast, idx: Ast.Node.Index) Block {
         const data = tree.nodes.items(.data);
         const node_data = data[idx];
         const tag = tree.nodes.items(.tag);
@@ -55,7 +55,7 @@ pub const BuiltinCall = struct {
         params: []const Ast.Node.Index,
     };
 
-    pub fn init(tree: Ast, idx: Ast.Node.Index) BuiltinCall {
+    pub fn init(tree: *const Ast, idx: Ast.Node.Index) BuiltinCall {
         const data = tree.nodes.items(.data);
         const node_data = data[idx];
         const tag = tree.nodes.items(.tag);
@@ -106,7 +106,7 @@ pub const NodeChildren = union(enum) {
     /// see: lib/std/zig/Ast.zig Node.Tag
     ///
     pub fn init(
-        tree: Ast,
+        tree: *const Ast,
         idx: Ast.Node.Index,
         buffer: []Ast.Node.Index,
     ) NodeChildren {
@@ -261,7 +261,7 @@ pub fn next(self: *Self) void {
     resume self.frame;
 }
 
-pub fn iterateAsync(self: *Self, tree: Ast) void {
+pub fn iterateAsync(self: *Self, tree: *const Ast) void {
     switch (NodeChildren.init(tree, self.idx, &self.buffer)) {
         .none => {},
         .one => |single| {

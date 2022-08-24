@@ -14,26 +14,6 @@ const Self = @This();
 text: []const u8,
 loc: ?std.zig.Token.Loc = null,
 
-fn resolve(
-    arena: *std.heap.ArenaAllocator,
-    project: Project,
-    node: AstNode,
-) ?AstNode {
-    if (project.resolveFieldAccess(arena.allocator(), node)) |resolved| {
-        return resolved;
-    } else |_| {
-        // not field
-    }
-
-    if (project.resolveType(arena.allocator(), node)) |resolved| {
-        return resolved;
-    } else |_| {
-        // no type
-    }
-
-    return null;
-}
-
 pub fn getHover(
     arena: *std.heap.ArenaAllocator,
     project: Project,
@@ -50,11 +30,14 @@ pub fn getHover(
         try w.print("`{s} => {s}`\n\n", .{ node_info, token_info });
 
         const id = IdentifierToken.init(doc.ast_context, token);
+        var may_resolved: ?AstNode = null;
         switch (id.kind) {
-            .reference => {},
-            .field_access => {},
-            .var_name => {},
-            .field_name => {},
+            .field_access => {
+                may_resolved = try project.resolveFieldAccess(arena.allocator(), node);
+            },
+            .reference, .var_name, .field_name => {
+                may_resolved = try project.resolveType(arena.allocator(), node);
+            },
             .if_payload => {},
             .while_payload => {},
             .switch_case_payload => {},
@@ -64,7 +47,7 @@ pub fn getHover(
             .error_value => {},
         }
 
-        if (resolve(arena, project, node)) |resolved| {
+        if (may_resolved) |resolved| {
             if (FunctionSignature.fromNode(allocator, resolved, 0)) |signature| {
                 const text = try signature.allocPrintSignature(allocator);
                 try w.print("\n```zig\n{s}\n```\n", .{text});

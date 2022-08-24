@@ -163,7 +163,7 @@ fn push_identifier(self: *Self, token_idx: u32, loc: std.zig.Token.Loc) !void {
     const node_tag = tag[idx];
     const name = ast_context.getText(loc);
     var buffer: [2]u32 = undefined;
-    const children = AstNodeIterator.NodeChildren.init(ast_context.tree, idx, &buffer);
+    const children = AstNodeIterator.NodeChildren.init(&ast_context.tree, idx, &buffer);
     switch (children) {
         .var_decl => {
             if (std.ascii.isUpper(name[0])) {

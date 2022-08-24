@@ -115,7 +115,7 @@ pub fn getMainToken(self: Self) AstToken {
 }
 
 pub fn getChildren(self: Self, buffer: []u32) AstNodeIterator.NodeChildren {
-    return AstNodeIterator.NodeChildren.init(self.context.tree, self.index, buffer);
+    return AstNodeIterator.NodeChildren.init(&self.context.tree, self.index, buffer);
 }
 
 pub fn isChildrenTagName(self: Self, tagName: []const u8) bool {

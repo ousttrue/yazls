@@ -143,8 +143,8 @@ pub const ContainerDecl = struct {
                     },
                 }
             },
-            .fn_decl => {
-                return error.FnDecl;
+            .fn_decl => |node| {
+                return node;
             },
         }
     }

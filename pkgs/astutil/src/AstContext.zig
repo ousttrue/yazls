@@ -34,7 +34,7 @@ pub fn traverse(context: *Self, parent_idx: Ast.Node.Index, idx: Ast.Node.Index)
     }
 
     var it = AstNodeIterator.init(idx);
-    _ = async it.iterateAsync(context.tree);
+    _ = async it.iterateAsync(&context.tree);
     while (it.value) |child| : (it.next()) {
         if (child >= context.nodes_parent.len) {
             const tags = tree.nodes.items(.tag);
