@@ -6,7 +6,7 @@ const AstToken = astutil.AstToken;
 const AstNode = astutil.AstNode;
 const Declaration = astutil.Declaration;
 const FunctionSignature = astutil.FunctionSignature;
-const IdentifierToken = astutil.IdentifierToken;
+const AstIdentifier = astutil.AstIdentifier;
 // const builtin_completions = @import("./builtin_completions.zig");
 const logger = std.log.scoped(.Hover);
 const Self = @This();
@@ -29,7 +29,7 @@ pub fn getHover(
         const w = text_buffer.writer();
         try w.print("`{s} => {s}`\n\n", .{ node_info, token_info });
 
-        const id = IdentifierToken.init(doc.ast_context, token);
+        const id = AstIdentifier.init(node);
         var may_resolved: ?AstNode = null;
         switch (id.kind) {
             .field_access => {
@@ -41,8 +41,7 @@ pub fn getHover(
             .if_payload => {},
             .while_payload => {},
             .switch_case_payload => {},
-            .function_name => {},
-            .function_param_name => {},
+            .fn_proto => {},
             .enum_literal => {},
             .error_value => {},
         }
