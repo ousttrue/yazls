@@ -3,6 +3,7 @@ const AstContext = @import("./AstContext.zig");
 const AstToken = @import("./AstToken.zig");
 const AstNode = @import("./AstNode.zig");
 const Utf8Buffer = @import("./Utf8Buffer.zig");
+const logger = std.log.scoped(.IdentifierToken);
 
 pub const AstIdentifierKind = enum {
     /// top level reference
@@ -117,6 +118,7 @@ pub fn init(context: *const AstContext, token: AstToken) Self {
                     };
                 },
                 else => {
+                    logger.err("{}: {s}", .{node.getTag(), node.getText()});
                     unreachable;
                 },
             }

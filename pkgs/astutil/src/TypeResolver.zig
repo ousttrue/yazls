@@ -49,9 +49,13 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
     if (self.path.items.len >= 100 or contains(self.path.items, node)) {
         std.debug.print("\n", .{});
         for (self.path.items) |item, i| {
-            std.debug.print("[{}] {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
+            if (std.meta.eql(item, node)) {
+                std.debug.print("<{}> {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
+            } else {
+                std.debug.print("[{}] {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
+            }
         }
-        return error.Recursive;
+        unreachable;
     }
     try self.path.append(node);
 
@@ -137,17 +141,19 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 },
                 .field_access => {
                     const field = try project.resolveFieldAccess(self.allocator, node);
-                    const field_resolved = try self.resolve(project, field);
+                    if (std.meta.eql(field, node)) {
+                        unreachable;
+                    }
                     if (node.getParent()) |parent| {
                         if (parent.getTag() == .call) {
                             // field is fn_decl or fn_proto
-                            const signature = try FunctionSignature.fromNode(self.allocator, field_resolved.node, 0);
+                            const signature = try FunctionSignature.fromNode(self.allocator, field, 0);
                             defer signature.deinit();
                             return self.resolve(project, signature.return_type_node);
                         }
                     }
 
-                    return self.resolve(project, field_resolved.node);
+                    return self.resolve(project, field);
                 },
                 .fn_decl => {
                     return AstType{
@@ -164,7 +170,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 else => {
                     std.debug.print("\n", .{});
                     for (self.path.items) |item, i| {
-                        std.debug.print("[{}]{s}: {s}\n", .{ i, item.context.path.slice(), item.getText() });
+                        std.debug.print("[{}]{}: {s}: {s}\n", .{ i, item.getTag(), item.context.path.slice(), item.getText() });
                     }
                     unreachable;
                 },
