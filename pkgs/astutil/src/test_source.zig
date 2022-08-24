@@ -1,8 +1,10 @@
+const std = @import("std");
 const Self = @This();
 
 value: ?u32 = 0,
 
 fn init() Self {
+    std.debug.print("", .{});
     return .{};
 }
 
