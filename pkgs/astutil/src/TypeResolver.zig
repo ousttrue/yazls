@@ -15,7 +15,7 @@ const AstIdentifier = @import("./AstIdentifier.zig");
 const logger = std.log.scoped(.TypeResolver);
 const Self = @This();
 
-const AstType = struct {
+pub const AstType = struct {
     node: AstNode,
     kind: union(enum) {
         primitive: PrimitiveType,
@@ -24,6 +24,7 @@ const AstType = struct {
         fn_proto,
         literal,
         block,
+        call,
     },
 };
 
@@ -66,30 +67,17 @@ fn getReturnNode(node: AstNode) ?AstNode {
     return null;
 }
 
-// fn getTypeNode(allocator: std.mem.Allocator, project: Project, src_node: AstNode) !AstNode {
-//     var node = src_node;
-//     while (AstIdentifier.init(node)) |id| {
-//         const type_node = try id.getTypeNode(allocator, project);
-//         if(type_node.index == node.index)
-//         {
-//             break;
-//         }
-//         node = type_node;
-//     }
-//     return node;
-// }
-
 pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
-    if (node.getParent()) |parent| {
-        // call
-        var buf: [2]u32 = undefined;
-        switch (parent.getChildren(&buf)) {
-            .call => {
-                return self.resolve(project, parent);
-            },
-            else => {},
-        }
-    }
+    // if (node.getParent()) |parent| {
+    //     // call
+    //     var buf: [2]u32 = undefined;
+    //     switch (parent.getChildren(&buf)) {
+    //         .call => {
+    //             return self.resolve(project, parent);
+    //         },
+    //         else => {},
+    //     }
+    // }
 
     // debug
     if (self.path.items.len >= 100 or contains(self.path.items, node)) {
@@ -127,16 +115,24 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
             // },
             .call => |call| {
                 const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
-                const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
-                var buf2: [2]u32 = undefined;
-                switch (fn_node.getChildren(&buf2)) {
-                    .fn_proto => |fn_proto| {
-                        return try self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
-                    },
-                    else => {
-                        return error.FnProtoNotFound;
-                    },
-                }
+                std.debug.assert(fn_decl.node.getTag() == .fn_decl);
+                // const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
+                // var buf2: [2]u32 = undefined;
+                // switch (fn_node.getChildren(&buf2)) {
+                //     .fn_proto => |fn_proto| {
+                //         return try self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
+                //     },
+                //     else => {
+                //         return error.FnProtoNotFound;
+                //     },
+                // }
+                // return AstType{
+                //     .node = node,
+                //     .kind = .call,
+                // };
+                const signature = try FunctionSignature.fromNode(self.allocator, fn_decl.node, 0);
+                defer signature.deinit();
+                return self.resolve(project, signature.return_type_node);
             },
             .builtin_call => {
                 const builtin_name = node.getMainToken().getText();

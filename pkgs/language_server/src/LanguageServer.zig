@@ -10,6 +10,8 @@ const DocumentStore = astutil.DocumentStore;
 const Project = astutil.Project;
 const Document = astutil.Document;
 const AstToken = astutil.AstToken;
+const AstNode = astutil.AstNode;
+const TypeResolver = astutil.TypeResolver;
 
 const ZigEnv = @import("./ZigEnv.zig");
 const Diagnostic = @import("./Diagnostic.zig");
@@ -19,7 +21,7 @@ const document_symbol = @import("./document_symbol.zig");
 const Goto = @import("./Goto.zig");
 const Completion = @import("./Completion.zig");
 const Signature = @import("./Signature.zig");
-const Hover = @import("./Hover.zig");
+const hover = @import("./hover.zig");
 const json_util = @import("./json_util.zig");
 const logger = std.log.scoped(.LanguageServer);
 
@@ -393,35 +395,30 @@ pub fn @"textDocument/hover"(
         return json_util.allocToResponse(arena.allocator(), id, null);
     };
 
-    const hover_or_null = try Hover.getHover(
-        arena,
-        Project.init(self.import_solver, &self.store),
-        doc,
-        token,
-    );
-
-    const hover = hover_or_null orelse {
-        return json_util.allocToResponse(arena.allocator(), id, null);
-    };
+    const node = AstNode.fromTokenIndex(doc.ast_context, token.index);
+    var resolver = TypeResolver.init(arena.allocator());
+    defer resolver.deinit();
+    const resolved = try resolver.resolve(self.project(), node);
+    const text = try hover.getHover(arena.allocator(), token, node, resolved);
 
     var range: ?lsp.types.Range = null;
-    if (hover.loc) |loc| {
-        const start = try doc.utf8_buffer.getPositionFromBytePosition(loc.start, self.encoding);
-        const end = try doc.utf8_buffer.getPositionFromBytePosition(loc.end, self.encoding);
-        range = lsp.types.Range{
-            .start = .{
-                .line = start.line,
-                .character = start.x,
-            },
-            .end = .{
-                .line = end.line,
-                .character = end.x,
-            },
-        };
-    }
+    // if (hover.loc) |loc| {
+    //     const start = try doc.utf8_buffer.getPositionFromBytePosition(loc.start, self.encoding);
+    //     const end = try doc.utf8_buffer.getPositionFromBytePosition(loc.end, self.encoding);
+    //     range = lsp.types.Range{
+    //         .start = .{
+    //             .line = start.line,
+    //             .character = start.x,
+    //         },
+    //         .end = .{
+    //             .line = end.line,
+    //             .character = end.x,
+    //         },
+    //     };
+    // }
 
     return json_util.allocToResponse(arena.allocator(), id, lsp.types.Hover{
-        .contents = .{ .value = hover.text },
+        .contents = .{ .value = text },
         .range = range,
     });
 }
