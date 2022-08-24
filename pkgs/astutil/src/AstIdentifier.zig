@@ -45,8 +45,8 @@ pub const AstIdentifierKind = enum {
 
     // fn_proto,
     // fn_decl,
-    enum_literal,
-    error_value,
+    // enum_literal,
+    // error_value,
 };
 
 const Self = @This();
@@ -107,18 +107,18 @@ pub fn init(node: AstNode) ?Self {
                         .kind = .field_access,
                     };
                 },
-                .enum_literal => {
-                    return Self{
-                        .node = node,
-                        .kind = .enum_literal,
-                    };
-                },
-                .error_value => {
-                    return Self{
-                        .node = node,
-                        .kind = .error_value,
-                    };
-                },
+                // .enum_literal => {
+                //     return Self{
+                //         .node = node,
+                //         .kind = .enum_literal,
+                //     };
+                // },
+                // .error_value => {
+                //     return Self{
+                //         .node = node,
+                //         .kind = .error_value,
+                //     };
+                // },
                 // .fn_decl => {
                 //     return Self{
                 //         .node = node,
@@ -230,12 +230,12 @@ pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !
         // .fn_proto => {
         //     return node;
         // },
-        .enum_literal => {
-            unreachable;
-        },
-        .error_value => {
-            unreachable;
-        },
+        // .enum_literal => {
+        //     unreachable;
+        // },
+        // .error_value => {
+        //     unreachable;
+        // },
     }
 }
 

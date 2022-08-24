@@ -20,6 +20,8 @@ pub const AstType = struct {
     kind: union(enum) {
         primitive: PrimitiveType,
         string_literal,
+        enum_literal,
+        error_value,
         container,
         fn_decl,
         fn_proto,
@@ -94,7 +96,12 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
     }
     try self.path.append(node);
 
-    if (AstIdentifier.init(node)) |id| {
+    if (PrimitiveType.fromName(node.getText())) |primitive| {
+        return AstType{
+            .node = node,
+            .kind = .{ .primitive = primitive },
+        };
+    } else if (AstIdentifier.init(node)) |id| {
         // get_type from identifier
         const type_node = try id.getTypeNode(self.allocator, project);
         return self.resolve(project, type_node);
@@ -225,12 +232,18 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                             .kind = .string_literal,
                         };
                     },
-                    //         , .enum_literal, .error_value => {
-                    //             return AstType{
-                    //                 .node = node,
-                    //                 .kind = .literal,
-                    //             };
-                    //         },
+                    .enum_literal => {
+                        return AstType{
+                            .node = node,
+                            .kind = .enum_literal,
+                        };
+                    },
+                    .error_value => {
+                        return AstType{
+                            .node = node,
+                            .kind = .error_value,
+                        };
+                    },
                     .optional_type, .@"try", .@"orelse", .array_access => {
                         return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
                     },
