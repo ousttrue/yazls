@@ -5,7 +5,7 @@ const AstNode = @import("./AstNode.zig");
 const Utf8Buffer = @import("./Utf8Buffer.zig");
 const Project = @import("./Project.zig");
 const Declaration = @import("./declaration.zig").Declaration;
-const logger = std.log.scoped(.IdentifierToken);
+const logger = std.log.scoped(.AstIdentifier);
 
 pub const AstIdentifierKind = enum {
     /// top level reference
@@ -43,8 +43,8 @@ pub const AstIdentifierKind = enum {
     /// to resolve condition_node
     switch_case_payload,
 
-    fn_proto,
-    fn_decl,
+    // fn_proto,
+    // fn_decl,
     enum_literal,
     error_value,
 };
@@ -87,12 +87,12 @@ pub fn init(node: AstNode) ?Self {
                 .kind = .container_field,
             };
         },
-        .fn_proto => {
-            return Self{
-                .node = node,
-                .kind = .fn_proto,
-            };
-        },
+        // .fn_proto => {
+        //     return Self{
+        //         .node = node,
+        //         .kind = .fn_proto,
+        //     };
+        // },
         else => {
             switch (node.getTag()) {
                 .identifier => {
@@ -119,14 +119,13 @@ pub fn init(node: AstNode) ?Self {
                         .kind = .error_value,
                     };
                 },
-                .fn_decl => {
-                    return Self{
-                        .node = node,
-                        .kind = .fn_decl,
-                    };
-                },
+                // .fn_decl => {
+                //     return Self{
+                //         .node = node,
+                //         .kind = .fn_decl,
+                //     };
+                // },
                 else => {
-                    logger.err("{}: {s}", .{ node.getTag(), node.getText() });
                     return null;
                 },
             }
@@ -225,12 +224,12 @@ pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !
                 },
             }
         },
-        .fn_decl => {
-            return node;
-        },
-        .fn_proto => {
-            return node;
-        },
+        // .fn_decl => {
+        //     return node;
+        // },
+        // .fn_proto => {
+        //     return node;
+        // },
         .enum_literal => {
             unreachable;
         },

@@ -66,19 +66,36 @@ fn getReturnNode(node: AstNode) ?AstNode {
     return null;
 }
 
-fn getNode(allocator: std.mem.Allocator, project: Project, src_node: AstNode) !AstNode {
-    if (AstIdentifier.init(src_node)) |id| {
-        return try id.getTypeNode(allocator, project);
-    } else {
-        return src_node;
-    }
-}
+// fn getTypeNode(allocator: std.mem.Allocator, project: Project, src_node: AstNode) !AstNode {
+//     var node = src_node;
+//     while (AstIdentifier.init(node)) |id| {
+//         const type_node = try id.getTypeNode(allocator, project);
+//         if(type_node.index == node.index)
+//         {
+//             break;
+//         }
+//         node = type_node;
+//     }
+//     return node;
+// }
 
-pub fn resolve(self: *Self, project: Project, src_node: AstNode) anyerror!AstType {
-    if (self.path.items.len >= 100 or contains(self.path.items, src_node)) {
+pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
+    if (node.getParent()) |parent| {
+        // call
+        var buf: [2]u32 = undefined;
+        switch (parent.getChildren(&buf)) {
+            .call => {
+                return self.resolve(project, parent);
+            },
+            else => {},
+        }
+    }
+
+    // debug
+    if (self.path.items.len >= 100 or contains(self.path.items, node)) {
         std.debug.print("\n", .{});
         for (self.path.items) |item, i| {
-            if (std.meta.eql(item, src_node)) {
+            if (std.meta.eql(item, node)) {
                 std.debug.print("<{}> {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
             } else {
                 std.debug.print("[{}] {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
@@ -86,152 +103,148 @@ pub fn resolve(self: *Self, project: Project, src_node: AstNode) anyerror!AstTyp
         }
         unreachable;
     }
-    try self.path.append(src_node);
+    try self.path.append(node);
 
-    const node = try getNode(self.allocator, project, src_node);
-    var buf: [2]u32 = undefined;
-    switch (node.getChildren(&buf)) {
-        .container_decl => {
-            return AstType{
-                .node = node,
-                .kind = .container,
-            };
-        },
-        .var_decl => {
-            return self.resolve(project, node);
-        },
-        // .container_field => |full| {
-        //     return self.resolve(project, AstNode.init(node.context, full.ast.type_expr));
-        // },
-        .call => |call| {
-            const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
-            const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
-            var buf2: [2]u32 = undefined;
-            switch (fn_node.getChildren(&buf2)) {
-                .fn_proto => |fn_proto| {
-                    const return_type = try self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
-                    switch (return_type.kind) {
-                        .primitive => |prim| {
-                            if (prim == PrimitiveType.type) {
-                                if (getReturnNode(fn_decl.node)) |return_node| {
-                                    return try self.resolve(project, return_node);
-                                }
-                            }
-                        },
-                        else => {},
+    if (AstIdentifier.init(node)) |id| {
+        // get_type from identifier
+        const type_node = try id.getTypeNode(self.allocator, project);
+        return self.resolve(project, type_node);
+    } else {
+        // type node
+        var buf: [2]u32 = undefined;
+        switch (node.getChildren(&buf)) {
+            .container_decl => {
+                return AstType{
+                    .node = node,
+                    .kind = .container,
+                };
+            },
+            .var_decl => {
+                return self.resolve(project, node);
+            },
+            // .container_field => |full| {
+            //     return self.resolve(project, AstNode.init(node.context, full.ast.type_expr));
+            // },
+            .call => |call| {
+                const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
+                const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
+                var buf2: [2]u32 = undefined;
+                switch (fn_node.getChildren(&buf2)) {
+                    .fn_proto => |fn_proto| {
+                        return try self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
+                    },
+                    else => {
+                        return error.FnProtoNotFound;
+                    },
+                }
+            },
+            .builtin_call => {
+                const builtin_name = node.getMainToken().getText();
+                if (std.mem.eql(u8, builtin_name, "@import")) {
+                    if (try project.resolveImport(node)) |imported| {
+                        return AstType{
+                            .node = imported,
+                            .kind = .container,
+                        };
+                    } else {
+                        return error.FailImport;
                     }
-                },
-                else => {
-                    return error.FnProtoNotFound;
-                },
-            }
-        },
-        .builtin_call => {
-            const builtin_name = node.getMainToken().getText();
-            if (std.mem.eql(u8, builtin_name, "@import")) {
-                if (try project.resolveImport(node)) |imported| {
+                } else if (std.mem.eql(u8, builtin_name, "@This")) {
+                    //
+                    if (node.getContainerNodeForThis()) |container| {
+                        return AstType{
+                            .node = container,
+                            .kind = .container,
+                        };
+                    } else {
+                        return error.NoConainerDecl;
+                    }
+                } else if (std.mem.eql(u8, builtin_name, "@cImport")) {
+                    const imported = try project.resolveCImport();
                     return AstType{
                         .node = imported,
                         .kind = .container,
                     };
                 } else {
-                    return error.FailImport;
+                    logger.err("{s}", .{builtin_name});
+                    return error.UnknownBuiltin;
                 }
-            } else if (std.mem.eql(u8, builtin_name, "@This")) {
-                //
-                if (node.getContainerNodeForThis()) |container| {
-                    return AstType{
-                        .node = container,
-                        .kind = .container,
-                    };
-                } else {
-                    return error.NoConainerDecl;
-                }
-            } else if (std.mem.eql(u8, builtin_name, "@cImport")) {
-                const imported = try project.resolveCImport();
+            },
+            .ptr_type => |ptr_type| {
+                return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type));
+            },
+            // .block => {
+            //     return AstType{
+            //         .node = node,
+            //         .kind = .block,
+            //     };
+            // },
+            .fn_proto => {
                 return AstType{
-                    .node = imported,
-                    .kind = .container,
+                    .node = node,
+                    .kind = .fn_proto,
                 };
-            } else {
-                logger.err("{s}", .{builtin_name});
-                return error.UnknownBuiltin;
-            }
-        },
-        .ptr_type => |ptr_type| {
-            return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type));
-        },
-        // .block => {
-        //     return AstType{
-        //         .node = node,
-        //         .kind = .block,
-        //     };
-        // },
-        .fn_proto => {
-            return AstType{
-                .node = node,
-                .kind = .fn_proto,
-            };
-        },
-        else => {
-            switch (node.getTag()) {
-                .identifier => {
-                    if (PrimitiveType.fromName(node.getText())) |primitive| {
+            },
+            else => {
+                switch (node.getTag()) {
+                    .identifier => {
+                        if (PrimitiveType.fromName(node.getText())) |primitive| {
+                            return AstType{
+                                .node = node,
+                                .kind = .{ .primitive = primitive },
+                            };
+                        } else if (Declaration.find(node)) |decl| {
+                            const type_node = try decl.getTypeNode();
+                            return self.resolve(project, type_node);
+                        } else {
+                            return error.NoDecl;
+                        }
+                    },
+                    .field_access => {
+                        const field = try project.resolveFieldAccess(self.allocator, node);
+                        if (std.meta.eql(field, node)) {
+                            unreachable;
+                        }
+                        if (node.getParent()) |parent| {
+                            if (parent.getTag() == .call) {
+                                // field is fn_decl or fn_proto
+                                const signature = try FunctionSignature.fromNode(self.allocator, field, 0);
+                                defer signature.deinit();
+                                return self.resolve(project, signature.return_type_node);
+                            }
+                        }
+
+                        return self.resolve(project, field);
+                    },
+                    .fn_decl => {
                         return AstType{
                             .node = node,
-                            .kind = .{ .primitive = primitive },
+                            .kind = .fn_decl,
                         };
-                    } else if (Declaration.find(node)) |decl| {
-                        const type_node = try decl.getTypeNode();
-                        return self.resolve(project, type_node);
-                    } else {
-                        return error.NoDecl;
-                    }
-                },
-                .field_access => {
-                    const field = try project.resolveFieldAccess(self.allocator, node);
-                    if (std.meta.eql(field, node)) {
-                        unreachable;
-                    }
-                    if (node.getParent()) |parent| {
-                        if (parent.getTag() == .call) {
-                            // field is fn_decl or fn_proto
-                            const signature = try FunctionSignature.fromNode(self.allocator, field, 0);
-                            defer signature.deinit();
-                            return self.resolve(project, signature.return_type_node);
-                        }
-                    }
+                    },
+                    //         .multiline_string_literal, .enum_literal, .error_value => {
+                    //             return AstType{
+                    //                 .node = node,
+                    //                 .kind = .literal,
+                    //             };
+                    //         },
+                    .optional_type, .@"try", .@"orelse", .array_access => {
+                        return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
+                    },
+                    .error_union, .array_type => {
+                        return self.resolve(project, AstNode.init(node.context, node.getData().rhs));
+                    },
+                    else => {},
+                }
+            },
+        }
 
-                    return self.resolve(project, field);
-                },
-                .fn_decl => {
-                    return AstType{
-                        .node = node,
-                        .kind = .fn_decl,
-                    };
-                },
-                //         .multiline_string_literal, .enum_literal, .error_value => {
-                //             return AstType{
-                //                 .node = node,
-                //                 .kind = .literal,
-                //             };
-                //         },
-                //         .optional_type, .@"try", .@"orelse", .array_access => {
-                //             return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
-                //         },
-                //         .error_union, .array_type => {
-                //             return self.resolve(project, AstNode.init(node.context, node.getData().rhs));
-                //         },
-                else => {},
-            }
-        },
+        std.debug.print("\n", .{});
+        for (self.path.items) |item, i| {
+            std.debug.print("[{}]{}: {s}: {s}\n", .{ i, item.getTag(), item.context.path.slice(), item.getText() });
+        }
+        unreachable;
     }
-
-    std.debug.print("\n", .{});
-    for (self.path.items) |item, i| {
-        std.debug.print("[{}]{}: {s}: {s}\n", .{ i, item.getTag(), item.context.path.slice(), item.getText() });
-    }
-    unreachable;
 }
 
 test {

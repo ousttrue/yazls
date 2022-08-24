@@ -42,8 +42,6 @@ pub fn getHover(
             .if_payload => {},
             .while_payload => {},
             .switch_case_payload => {},
-            .fn_proto => {},
-            .fn_decl => {},
             .enum_literal => {},
             .error_value => {},
         }
