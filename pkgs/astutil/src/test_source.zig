@@ -1,13 +1,16 @@
 const Self = @This();
 
-value: u32 = 0,
+value: ?u32 = 0,
 
 fn init() Self {
     return .{};
 }
 
 fn get(self: Self) u32 {
-    return self.value;
+    return if (self.value) |value|
+        value
+    else
+        0;
 }
 
 extern fn external_func(a: c_int) c_int;

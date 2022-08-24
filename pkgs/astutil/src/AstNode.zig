@@ -1,6 +1,7 @@
 const std = @import("std");
 const Ast = std.zig.Ast;
 const AstContext = @import("./AstContext.zig");
+const Utf8Buffer = @import("./Utf8Buffer.zig");
 const AstToken = @import("./AstToken.zig");
 const AstNodeIterator = @import("./AstNodeIterator.zig");
 const PathPosition = @import("./PathPosition.zig");
@@ -197,8 +198,9 @@ test {
     const allocator = std.testing.allocator;
     const text: [:0]const u8 = try allocator.dupeZ(u8, source);
     defer allocator.free(text);
-
-    const context = try AstContext.new(allocator, .{}, text);
+    const line_heads = try Utf8Buffer.allocLineHeads(allocator, text);
+    defer allocator.free(line_heads);
+    const context = try AstContext.new(allocator, .{}, text, line_heads);
     defer context.delete();
 
     const node = fromTokenIndex(context, 0);
@@ -234,7 +236,9 @@ test "@This" {
     const allocator = std.testing.allocator;
     const text: [:0]const u8 = try allocator.dupeZ(u8, source);
     defer allocator.free(text);
-    const context = try AstContext.new(allocator, .{}, text);
+    const line_heads = try Utf8Buffer.allocLineHeads(allocator, text);
+    defer allocator.free(line_heads);
+    const context = try AstContext.new(allocator, .{}, text, line_heads);
     defer context.delete();
 
     const node = Self.fromTokenIndex(context, 3);

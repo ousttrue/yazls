@@ -1,5 +1,21 @@
 const std = @import("std");
 const Line = @import("./Line.zig");
+
+pub fn allocLineHeads(allocator: std.mem.Allocator, text: []const u8) ![]const u32 {
+    var line_heads = std.ArrayList(u32).init(allocator);
+    line_heads.resize(0) catch unreachable;
+    line_heads.append(0) catch unreachable;
+    var i: u32 = 0;
+    while (i < text.len) {
+        const c = text[i];
+        if (c == '\n') {
+            line_heads.append(@intCast(u32, i + 1)) catch unreachable;
+        }
+        i += @intCast(u32, try std.unicode.utf8ByteSequenceLength(c));
+    }
+    return line_heads.toOwnedSlice();
+}
+
 const Self = @This();
 
 allocator: std.mem.Allocator,
@@ -7,7 +23,7 @@ allocator: std.mem.Allocator,
 text: [:0]u8,
 // This holds the memory that we have actually allocated.
 mem: []u8,
-line_heads: std.ArrayList(u32),
+line_heads: []const u32,
 
 pub fn init(allocator: std.mem.Allocator, text: []const u8) !Self {
     const duped_text = try allocator.dupeZ(u8, text);
@@ -17,28 +33,15 @@ pub fn init(allocator: std.mem.Allocator, text: []const u8) !Self {
         .text = duped_text,
         // Extra +1 to include the null terminator
         .mem = duped_text.ptr[0 .. duped_text.len + 1],
-        .line_heads = std.ArrayList(u32).init(allocator),
+        .line_heads = undefined,
     };
-    try self.resetLines();
+    self.line_heads = try allocLineHeads(allocator, self.text);
     return self;
 }
 
 pub fn deinit(self: Self) void {
-    self.line_heads.deinit();
+    self.allocator.free(self.line_heads);
     self.allocator.free(self.mem);
-}
-
-fn resetLines(self: *Self) !void {
-    self.line_heads.resize(0) catch unreachable;
-    self.line_heads.append(0) catch unreachable;
-    var i: u32 = 0;
-    while (i < self.text.len) {
-        const c = self.text[i];
-        if (c == '\n') {
-            self.line_heads.append(@intCast(u32, i + 1)) catch unreachable;
-        }
-        i += @intCast(u32, try std.unicode.utf8ByteSequenceLength(c));
-    }
 }
 
 pub fn applyChanges(self: *Self, content_changes: std.json.Array, encoding: Line.Encoding) !void {
@@ -96,21 +99,22 @@ pub fn applyChanges(self: *Self, content_changes: std.json.Array, encoding: Line
             self.text = self.mem[0..change_text.len :0];
         }
     }
-    try self.resetLines();
+    self.allocator.free(self.line_heads);
+    self.line_heads = try allocLineHeads(self.allocator, self.text);
 }
 
 pub fn getLineIndexFromBytePosition(self: Self, byte_position: usize) !usize {
     if (byte_position > self.text.len) {
         return error.OutOfRange;
     }
-    const line_count = self.line_heads.items.len;
+    const line_count = self.line_heads.len;
     var top: usize = 0;
     var bottom: usize = line_count - 1;
     while (true) {
         var line: usize = (bottom + top) / 2;
-        const begin = self.line_heads.items[line];
+        const begin = self.line_heads[line];
         const end = if (line + 1 < line_count)
-            self.line_heads.items[line + 1] - 1
+            self.line_heads[line + 1] - 1
         else
             self.text.len;
         // std.debug.print("line: [{}, {} => {}]: {} ~ {} <= {}\n", .{ top, bottom, line, begin, end, byte_position });
@@ -141,20 +145,20 @@ pub fn getLineIndexFromBytePosition(self: Self, byte_position: usize) !usize {
 }
 
 pub fn getLine(self: Self, line_index: u32) !Line {
-    const line_count = self.line_heads.items.len;
+    const line_count = self.line_heads.len;
     if (line_count == 0) {
         return error.NoLine;
     } else if (line_index < line_count - 1) {
         return Line{
             .full = self.text,
-            .begin = self.line_heads.items[line_index],
-            .end = self.line_heads.items[line_index + 1] - 1,
+            .begin = self.line_heads[line_index],
+            .end = self.line_heads[line_index + 1] - 1,
         };
     } else if (line_index == line_count - 1) {
         // last line
         return Line{
             .full = self.text,
-            .begin = self.line_heads.items[line_index],
+            .begin = self.line_heads[line_index],
             .end = @intCast(u32, self.text.len),
         };
     } else {
@@ -170,7 +174,7 @@ pub const LineX = struct {
 // TODO: mutibyte
 pub fn getPositionFromBytePosition(self: Self, byte_position: usize, encoding: Line.Encoding) !LineX {
     const line = try self.getLineIndexFromBytePosition(byte_position);
-    var i: u32 = self.line_heads.items[line];
+    var i: u32 = self.line_heads[line];
     var x: u32 = 0;
     while (i < byte_position) {
         const len: u32 = try std.unicode.utf8ByteSequenceLength(self.text[i]);

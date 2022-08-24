@@ -54,8 +54,9 @@ tree: std.zig.Ast,
 nodes_parent: []u32,
 tokens: []std.zig.Token,
 tokens_node: []u32,
+tokens_line: []u32,
 
-pub fn new(allocator: std.mem.Allocator, path: FixedPath, text: [:0]const u8) !*Self {
+pub fn new(allocator: std.mem.Allocator, path: FixedPath, text: [:0]const u8, line_heads: []const u32) !*Self {
     const tree = try std.zig.parse(allocator, text);
     var self = allocator.create(Self) catch unreachable;
     self.* = Self{
@@ -65,6 +66,7 @@ pub fn new(allocator: std.mem.Allocator, path: FixedPath, text: [:0]const u8) !*
         .nodes_parent = allocator.alloc(u32, tree.nodes.len) catch unreachable,
         .tokens = getAllTokensAlloc(allocator, tree.source),
         .tokens_node = allocator.alloc(u32, tree.tokens.len) catch unreachable,
+        .tokens_line = allocator.alloc(u32, tree.tokens.len) catch unreachable,
     };
     for (self.nodes_parent) |*x| {
         x.* = 0;
@@ -79,10 +81,21 @@ pub fn new(allocator: std.mem.Allocator, path: FixedPath, text: [:0]const u8) !*
         traverse(self, 0, decl);
     }
 
+    // tokens
+    // for (self.tokens_line) |*p, i| {
+    //     p.* = @intCast(u32, tree.tokenLocation(0, @intCast(u32, i)).line);
+    // }
+    var line: u32 = 0;
+    for (self.tokens) |token, i| {
+        while (line < line_heads.len - 1 and token.loc.start >= line_heads[line + 1]) : (line += 1) {}
+        self.tokens_line[i] = line;
+    }
+
     return self;
 }
 
 pub fn delete(self: *Self) void {
+    self.allocator.free(self.tokens_line);
     self.allocator.free(self.tokens_node);
     self.allocator.free(self.nodes_parent);
     self.allocator.free(self.tokens);
@@ -100,6 +113,21 @@ pub fn getTokens(self: Self, start: usize, last: usize) []const std.zig.Token {
         end += 1;
     }
     return self.tokens[start..end];
+}
+
+pub fn getToken(self: Self, line: u32, col: u32) ?AstToken {
+    for (self.tokens_line) |l, i| {
+        if (l == line) {
+            const location = self.tree.tokenLocation(0, @intCast(u32, i));
+            std.debug.assert(location.line == line);
+            const token = self.tokens[i];
+            const len = token.loc.end - token.loc.start;
+            if (col >= location.column and col < location.column + len) {
+                return AstToken.init(&self.tree, i);
+            }
+        }
+    }
+    return null;
 }
 
 pub fn getNodeTokens(self: Self, idx: u32) []const std.zig.Token {

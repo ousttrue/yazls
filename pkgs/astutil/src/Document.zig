@@ -22,7 +22,7 @@ pub fn new(allocator: std.mem.Allocator, path: FixedPath, text: []const u8) !*Se
         .allocator = allocator,
         .path = path,
         .utf8_buffer = utf8_buffer,
-        .ast_context = try AstContext.new(allocator, self.path, utf8_buffer.text),
+        .ast_context = try AstContext.new(allocator, self.path, utf8_buffer.text, utf8_buffer.line_heads),
     };
     return self;
 }
@@ -35,7 +35,7 @@ pub fn delete(self: *Self) void {
 
 fn refreshDocument(self: *Self) !void {
     self.ast_context.delete();
-    self.ast_context = try AstContext.new(self.allocator, self.path, self.utf8_buffer.text);
+    self.ast_context = try AstContext.new(self.allocator, self.path, self.utf8_buffer.text, self.utf8_buffer.line_heads);
     errdefer self.ast_context.delete();
 }
 

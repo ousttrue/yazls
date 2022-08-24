@@ -4,6 +4,7 @@ const AstContext = @import("./AstContext.zig");
 const AstNode = @import("./AstNode.zig");
 const AstToken = @import("./AstToken.zig");
 const AstNodeIterator = @import("./AstNodeIterator.zig");
+const Utf8Buffer = @import("./Utf8Buffer.zig");
 const logger = std.log.scoped(.AstContainer);
 
 fn getFnProtoName(node: AstNode, fn_proto: Ast.full.FnProto) ?AstToken {
@@ -149,7 +150,9 @@ test {
     const allocator = std.testing.allocator;
     const text: [:0]const u8 = try allocator.dupeZ(u8, source);
     defer allocator.free(text);
-    const context = try AstContext.new(allocator, .{}, text);
+    const line_heads = try Utf8Buffer.allocLineHeads(allocator, text);
+    defer allocator.free(line_heads);
+    const context = try AstContext.new(allocator, .{}, text, line_heads);
     defer context.delete();
 
     const root = Self.init(AstNode.init(context, 0)).?;
