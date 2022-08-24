@@ -85,8 +85,14 @@ pub fn fromNode(allocator: std.mem.Allocator, node: AstNode, active_param: u32) 
                 .fn_decl => {
                     // fn
                     const fn_proto_node = AstNode.init(node.context, node.getData().lhs);
-                    const fn_proto = fn_proto_node.getFnProto(&buf) orelse return error.NoFnProto;
-                    return init(allocator, node.context, fn_proto, active_param);
+                    switch (fn_proto_node.getChildren(&buf)) {
+                        .fn_proto => |fn_proto| {
+                            return init(allocator, node.context, fn_proto, active_param);
+                        },
+                        else => {
+                            return error.NoFnProto;
+                        },
+                    }
                 },
                 else => {
                     return error.FnDeclNorFnProto;

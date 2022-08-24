@@ -230,25 +230,28 @@ pub const Declaration = union(enum) {
                     .fn_decl => {
                         const fn_proto_node = AstNode.init(scope.context, scope.getData().lhs);
                         var buffer2: [2]u32 = undefined;
-                        if (fn_proto_node.getFnProto(&buffer2)) |fn_proto| {
-                            var params = fn_proto.iterate(tree);
-                            var i: u32 = 0;
-                            while (params.next()) |param| : (i += 1) {
-                                if (param.name_token) |name_token_index| {
-                                    const name_token = AstToken.init(tree, name_token_index);
-                                    if (std.mem.eql(u8, name_token.getText(), symbol)) {
-                                        return Self{
-                                            .local = .{
-                                                .node = fn_proto_node,
-                                                .variable = .{ .param = i },
-                                                .name_token = name_token,
-                                            },
-                                        };
+                        switch (fn_proto_node.getChildren(&buffer2)) {
+                            .fn_proto => |fn_proto| {
+                                var params = fn_proto.iterate(tree);
+                                var i: u32 = 0;
+                                while (params.next()) |param| : (i += 1) {
+                                    if (param.name_token) |name_token_index| {
+                                        const name_token = AstToken.init(tree, name_token_index);
+                                        if (std.mem.eql(u8, name_token.getText(), symbol)) {
+                                            return Self{
+                                                .local = .{
+                                                    .node = fn_proto_node,
+                                                    .variable = .{ .param = i },
+                                                    .name_token = name_token,
+                                                },
+                                            };
+                                        }
                                     }
                                 }
-                            }
-                        } else {
-                            unreachable;
+                            },
+                            else => {
+                                unreachable;
+                            },
                         }
                     },
                     else => {},
@@ -286,19 +289,22 @@ pub const Declaration = union(enum) {
                                 .fn_decl => {
                                     const fn_proto_node = AstNode.init(scope.context, member_node.getData().lhs);
                                     var buf3: [2]u32 = undefined;
-                                    if (fn_proto_node.getFnProto(&buf3)) |fn_proto| {
-                                        if (fn_proto.name_token) |name_token_index| {
-                                            const name_token = AstToken.init(tree, name_token_index);
-                                            if (std.mem.eql(u8, name_token.getText(), symbol)) {
-                                                return Self{
-                                                    .container = .{
-                                                        .container = scope,
-                                                        .member = .{ .fn_decl = member_node },
-                                                        .name_token = name_token,
-                                                    },
-                                                };
+                                    switch (fn_proto_node.getChildren(&buf3)) {
+                                        .fn_proto => |fn_proto| {
+                                            if (fn_proto.name_token) |name_token_index| {
+                                                const name_token = AstToken.init(tree, name_token_index);
+                                                if (std.mem.eql(u8, name_token.getText(), symbol)) {
+                                                    return Self{
+                                                        .container = .{
+                                                            .container = scope,
+                                                            .member = .{ .fn_decl = member_node },
+                                                            .name_token = name_token,
+                                                        },
+                                                    };
+                                                }
                                             }
-                                        }
+                                        },
+                                        else => {},
                                     }
                                 },
                                 .test_decl => {},

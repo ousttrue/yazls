@@ -19,10 +19,13 @@ fn getFnDeclName(node: AstNode) ?AstToken {
     std.debug.assert(node.getTag() == .fn_decl);
     const proto = AstNode.init(node.context, node.getData().lhs);
     var buf: [2]u32 = undefined;
-    if (proto.getFnProto(&buf)) |fn_proto| {
-        return getFnProtoName(proto, fn_proto);
-    } else {
-        unreachable;
+    switch (proto.getChildren(&buf)) {
+        .fn_proto => |fn_proto| {
+            return getFnProtoName(proto, fn_proto);
+        },
+        else => {
+            unreachable;
+        },
     }
 }
 

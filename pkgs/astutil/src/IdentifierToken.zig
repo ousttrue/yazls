@@ -48,6 +48,9 @@ pub const AstIdentifierKind = enum {
     /// if call return_type_node
     /// else fn_proto
     function_param_name,
+
+    enum_literal,
+    error_value,
 };
 
 const Self = @This();
@@ -117,8 +120,20 @@ pub fn init(context: *const AstContext, token: AstToken) Self {
                         .kind = .field_access,
                     };
                 },
+                .enum_literal => {
+                    return Self{
+                        .token = token,
+                        .kind = .enum_literal,
+                    };
+                },
+                .error_value => {
+                    return Self{
+                        .token = token,
+                        .kind = .error_value,
+                    };
+                },
                 else => {
-                    logger.err("{}: {s}", .{node.getTag(), node.getText()});
+                    logger.err("{}: {s}", .{ node.getTag(), node.getText() });
                     unreachable;
                 },
             }

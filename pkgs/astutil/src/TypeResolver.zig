@@ -19,6 +19,9 @@ const AstType = struct {
         primitive: PrimitiveType,
         container,
         fn_decl,
+        fn_proto,
+        literal,
+        block,
     },
 };
 
@@ -83,10 +86,13 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
             const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
             const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
             var buf2: [2]u32 = undefined;
-            if (fn_node.getFnProto(&buf2)) |fn_proto| {
-                return self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
-            } else {
-                return error.FnProtoNotFound;
+            switch (fn_node.getChildren(&buf2)) {
+                .fn_proto => |fn_proto| {
+                    return self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
+                },
+                else => {
+                    return error.FnProtoNotFound;
+                },
             }
         },
         .builtin_call => {
@@ -123,6 +129,18 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
         },
         .ptr_type => |ptr_type| {
             return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type));
+        },
+        .block => {
+            return AstType{
+                .node = node,
+                .kind = .block,
+            };
+        },
+        .fn_proto => {
+            return AstType{
+                .node = node,
+                .kind = .fn_proto,
+            };
         },
         else => {
             switch (node.getTag()) {
@@ -161,10 +179,16 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                         .kind = .fn_decl,
                     };
                 },
+                .multiline_string_literal, .enum_literal, .error_value => {
+                    return AstType{
+                        .node = node,
+                        .kind = .literal,
+                    };
+                },
                 .optional_type, .@"try", .@"orelse", .array_access => {
                     return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
                 },
-                .error_union => {
+                .error_union, .array_type => {
                     return self.resolve(project, AstNode.init(node.context, node.getData().rhs));
                 },
                 else => {

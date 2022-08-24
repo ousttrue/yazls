@@ -124,18 +124,6 @@ pub fn isChildrenTagName(self: Self, tagName: []const u8) bool {
     return std.mem.eql(u8, @tagName(children), tagName);
 }
 
-pub fn getFnProto(self: Self, buffer: []u32) ?Ast.full.FnProto {
-    const children = self.getChildren(buffer);
-    switch (children) {
-        .fn_proto => |fn_proto| {
-            return fn_proto;
-        },
-        else => {
-            return null;
-        },
-    }
-}
-
 pub fn getContainerDecl(self: Self, buffer: []u32) ?Ast.full.ContainerDecl {
     const children = self.getChildren(buffer);
     return switch (children) {

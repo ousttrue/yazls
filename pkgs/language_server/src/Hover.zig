@@ -60,6 +60,8 @@ pub fn getHover(
             .switch_case_payload => {},
             .function_name => {},
             .function_param_name => {},
+            .enum_literal => {},
+            .error_value => {},
         }
 
         if (resolve(arena, project, node)) |resolved| {
