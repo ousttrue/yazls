@@ -11,6 +11,7 @@ const Declaration = @import("./declaration.zig").Declaration;
 const FunctionSignature = @import("./FunctionSignature.zig");
 const PrimitiveType = @import("./primitives.zig").PrimitiveType;
 const AstNodeIterator = @import("./AstNodeIterator.zig");
+const AstIdentifier = @import("./AstIdentifier.zig");
 const logger = std.log.scoped(.TypeResolver);
 const Self = @This();
 
@@ -55,7 +56,7 @@ fn getReturnNode(node: AstNode) ?AstNode {
     }
 
     var it = AstNodeIterator.init(node.index);
-    _ =  async it.iterateAsync(&node.context.tree);
+    _ = async it.iterateAsync(&node.context.tree);
     while (it.value) |value| : (it.next()) {
         if (getReturnNode(AstNode.init(node.context, value))) |found| {
             return found;
@@ -65,11 +66,19 @@ fn getReturnNode(node: AstNode) ?AstNode {
     return null;
 }
 
-pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
-    if (self.path.items.len >= 100 or contains(self.path.items, node)) {
+fn getNode(allocator: std.mem.Allocator, project: Project, src_node: AstNode) !AstNode {
+    if (AstIdentifier.init(src_node)) |id| {
+        return try id.getTypeNode(allocator, project);
+    } else {
+        return src_node;
+    }
+}
+
+pub fn resolve(self: *Self, project: Project, src_node: AstNode) anyerror!AstType {
+    if (self.path.items.len >= 100 or contains(self.path.items, src_node)) {
         std.debug.print("\n", .{});
         for (self.path.items) |item, i| {
-            if (std.meta.eql(item, node)) {
+            if (std.meta.eql(item, src_node)) {
                 std.debug.print("<{}> {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
             } else {
                 std.debug.print("[{}] {s}: {} {s}\n", .{ i, item.context.path.slice(), item.getTag(), item.getText() });
@@ -77,8 +86,9 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
         }
         unreachable;
     }
-    try self.path.append(node);
+    try self.path.append(src_node);
 
+    const node = try getNode(self.allocator, project, src_node);
     var buf: [2]u32 = undefined;
     switch (node.getChildren(&buf)) {
         .container_decl => {
@@ -87,18 +97,12 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 .kind = .container,
             };
         },
-        .var_decl => |var_decl| {
-            if (var_decl.ast.type_node != 0) {
-                return self.resolve(project, AstNode.init(node.context, var_decl.ast.type_node));
-            } else if (var_decl.ast.init_node != 0) {
-                return self.resolve(project, AstNode.init(node.context, var_decl.ast.init_node));
-            } else {
-                return error.NoInit;
-            }
+        .var_decl => {
+            return self.resolve(project, node);
         },
-        .container_field => |full| {
-            return self.resolve(project, AstNode.init(node.context, full.ast.type_expr));
-        },
+        // .container_field => |full| {
+        //     return self.resolve(project, AstNode.init(node.context, full.ast.type_expr));
+        // },
         .call => |call| {
             const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
             const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
@@ -157,12 +161,12 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
         .ptr_type => |ptr_type| {
             return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type));
         },
-        .block => {
-            return AstType{
-                .node = node,
-                .kind = .block,
-            };
-        },
+        // .block => {
+        //     return AstType{
+        //         .node = node,
+        //         .kind = .block,
+        //     };
+        // },
         .fn_proto => {
             return AstType{
                 .node = node,
@@ -206,29 +210,27 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                         .kind = .fn_decl,
                     };
                 },
-                .multiline_string_literal, .enum_literal, .error_value => {
-                    return AstType{
-                        .node = node,
-                        .kind = .literal,
-                    };
-                },
-                .optional_type, .@"try", .@"orelse", .array_access => {
-                    return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
-                },
-                .error_union, .array_type => {
-                    return self.resolve(project, AstNode.init(node.context, node.getData().rhs));
-                },
-                else => {
-                    std.debug.print("\n", .{});
-                    for (self.path.items) |item, i| {
-                        std.debug.print("[{}]{}: {s}: {s}\n", .{ i, item.getTag(), item.context.path.slice(), item.getText() });
-                    }
-                    unreachable;
-                },
+                //         .multiline_string_literal, .enum_literal, .error_value => {
+                //             return AstType{
+                //                 .node = node,
+                //                 .kind = .literal,
+                //             };
+                //         },
+                //         .optional_type, .@"try", .@"orelse", .array_access => {
+                //             return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
+                //         },
+                //         .error_union, .array_type => {
+                //             return self.resolve(project, AstNode.init(node.context, node.getData().rhs));
+                //         },
+                else => {},
             }
         },
     }
 
+    std.debug.print("\n", .{});
+    for (self.path.items) |item, i| {
+        std.debug.print("[{}]{}: {s}: {s}\n", .{ i, item.getTag(), item.context.path.slice(), item.getText() });
+    }
     unreachable;
 }
 

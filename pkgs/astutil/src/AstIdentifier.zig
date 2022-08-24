@@ -3,6 +3,8 @@ const AstContext = @import("./AstContext.zig");
 const AstToken = @import("./AstToken.zig");
 const AstNode = @import("./AstNode.zig");
 const Utf8Buffer = @import("./Utf8Buffer.zig");
+const Project = @import("./Project.zig");
+const Declaration = @import("./declaration.zig").Declaration;
 const logger = std.log.scoped(.IdentifierToken);
 
 pub const AstIdentifierKind = enum {
@@ -17,14 +19,14 @@ pub const AstIdentifierKind = enum {
     field_access,
     /// variable decl name
     /// const name: u32 = 0;
-    ///       ^
+    ///       ^     ^
     /// to resolve type, type_node or init_node
-    var_name,
+    var_decl,
     /// container field name
     /// name: u32 = 0,
-    /// ^
+    /// ^     ^
     /// to resolve type_node
-    field_name,
+    container_field,
     /// if payload
     /// if(some)|payload|
     ///          ^
@@ -42,6 +44,7 @@ pub const AstIdentifierKind = enum {
     switch_case_payload,
 
     fn_proto,
+    fn_decl,
     enum_literal,
     error_value,
 };
@@ -51,13 +54,13 @@ const Self = @This();
 node: AstNode,
 kind: AstIdentifierKind,
 
-pub fn init(node: AstNode) Self {
+pub fn init(node: AstNode) ?Self {
     var buf: [2]u32 = undefined;
     switch (node.getChildren(&buf)) {
         .var_decl => {
             return Self{
                 .node = node,
-                .kind = .var_name,
+                .kind = .var_decl,
             };
         },
         .@"if" => {
@@ -81,7 +84,7 @@ pub fn init(node: AstNode) Self {
         .container_field => {
             return Self{
                 .node = node,
-                .kind = .field_name,
+                .kind = .container_field,
             };
         },
         .fn_proto => {
@@ -116,9 +119,15 @@ pub fn init(node: AstNode) Self {
                         .kind = .error_value,
                     };
                 },
+                .fn_decl => {
+                    return Self{
+                        .node = node,
+                        .kind = .fn_decl,
+                    };
+                },
                 else => {
                     logger.err("{}: {s}", .{ node.getTag(), node.getText() });
-                    unreachable;
+                    return null;
                 },
             }
         },
@@ -129,6 +138,106 @@ pub fn fromToken(context: *const AstContext, token: AstToken) Self {
     std.debug.assert(token.getTag() == .identifier);
     const node = AstNode.fromTokenIndex(context, token.index);
     return init(node);
+}
+
+pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !AstNode {
+    const node = self.node;
+    var buf: [2]u32 = undefined;
+    switch (self.kind) {
+        .field_access => {
+            return try project.resolveFieldAccess(allocator, node);
+        },
+        .reference => {
+            if (Declaration.find(node)) |decl| {
+                return try decl.getTypeNode();
+            } else {
+                return error.NoDecl;
+            }
+        },
+        .container_field => {
+            switch (node.getChildren(&buf)) {
+                .container_field => |full| {
+                    return AstNode.init(node.context, full.ast.type_expr);
+                },
+                else => {
+                    unreachable;
+                },
+            }
+        },
+        .var_decl => {
+            switch (node.getChildren(&buf)) {
+                .var_decl => |full| {
+                    if (full.ast.type_node != 0) {
+                        return AstNode.init(node.context, full.ast.type_node);
+                    } else if (full.ast.init_node != 0) {
+                        return AstNode.init(node.context, full.ast.init_node);
+                    } else {
+                        unreachable;
+                    }
+                },
+                else => {
+                    unreachable;
+                },
+            }
+        },
+        .if_payload => {
+            switch (node.getChildren(&buf)) {
+                .@"if" => |full| {
+                    std.debug.assert(full.payload_token != null);
+                    return AstNode.init(node.context, full.ast.cond_expr);
+                },
+                else => {
+                    unreachable;
+                },
+            }
+        },
+        .while_payload => {
+            switch (node.getChildren(&buf)) {
+                .@"while" => |full| {
+                    std.debug.assert(full.payload_token != null);
+                    return AstNode.init(node.context, full.ast.cond_expr);
+                },
+                else => {
+                    unreachable;
+                },
+            }
+        },
+        .switch_case_payload => {
+            switch (node.getChildren(&buf)) {
+                .switch_case => |full| {
+                    std.debug.assert(full.payload_token != null);
+                    if (node.getParent()) |parent| {
+                        std.debug.assert(parent.getTag() == .@"switch");
+                        switch (parent.getChildren(&buf)) {
+                            .@"switch" => |switch_full| {
+                                return AstNode.init(node.context, switch_full.ast.cond_expr);
+                            },
+                            else => {
+                                unreachable;
+                            },
+                        }
+                    } else {
+                        return error.NoSwitch;
+                    }
+                },
+                else => {
+                    unreachable;
+                },
+            }
+        },
+        .fn_decl => {
+            return node;
+        },
+        .fn_proto => {
+            return node;
+        },
+        .enum_literal => {
+            unreachable;
+        },
+        .error_value => {
+            unreachable;
+        },
+    }
 }
 
 test {

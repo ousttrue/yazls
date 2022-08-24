@@ -5,7 +5,6 @@ const Document = @import("./Document.zig");
 const AstToken = @import("./AstToken.zig");
 const AstNode = @import("./AstNode.zig");
 const AstContainer = @import("./AstContainer.zig");
-const Declaration = @import("./declaration.zig").Declaration;
 const TypeResolver = @import("./TypeResolver.zig");
 const logger = std.log.scoped(.Project);
 const Self = @This();
