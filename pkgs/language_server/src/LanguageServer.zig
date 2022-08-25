@@ -394,6 +394,9 @@ pub fn @"textDocument/hover"(
     const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
         return json_util.allocToResponse(arena.allocator(), id, null);
     };
+    if (token.getTag() != .identifier) {
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    }
 
     const node = AstNode.fromTokenIndex(doc.ast_context, token.index);
     var resolver = TypeResolver.init(arena.allocator());

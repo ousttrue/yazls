@@ -177,12 +177,12 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
             .ptr_type => |ptr_type| {
                 return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type));
             },
-            // .block => {
-            //     return AstType{
-            //         .node = node,
-            //         .kind = .block,
-            //     };
-            // },
+            .block => {
+                return AstType{
+                    .node = node,
+                    .kind = .block,
+                };
+            },
             .fn_proto => {
                 return AstType{
                     .node = node,
