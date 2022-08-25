@@ -46,11 +46,6 @@ pub const AstIdentifierKind = enum {
     ///               ^
     /// to resolve condition_node
     switch_case_payload,
-
-    // fn_proto,
-    // fn_decl,
-    // enum_literal,
-    // error_value,
 };
 
 pub const TypeNode = union(enum) {
@@ -97,12 +92,6 @@ pub fn init(node: AstNode) ?Self {
                 .kind = .container_field,
             };
         },
-        // .fn_proto => {
-        //     return Self{
-        //         .node = node,
-        //         .kind = .fn_proto,
-        //     };
-        // },
         else => {
             switch (node.getTag()) {
                 .identifier => {
@@ -128,7 +117,7 @@ pub fn init(node: AstNode) ?Self {
 pub fn fromToken(context: *const AstContext, token: AstToken) Self {
     std.debug.assert(token.getTag() == .identifier);
     const node = AstNode.fromTokenIndex(context, token.index);
-    return init(node);
+    return init(node).?;
 }
 
 pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !TypeNode {
@@ -230,7 +219,7 @@ test {
         const value = context.getToken(5, 10).?;
         try std.testing.expectEqualStrings("Self", value.getText());
         const id = fromToken(context, value);
-        try std.testing.expectEqual(AstIdentifierKind.reference, id.kind);
+        try std.testing.expectEqual(AstIdentifierKind.identifier, id.kind);
     }
     {
         const value = context.getToken(6, 11).?;
@@ -242,7 +231,7 @@ test {
         const value = context.getToken(1, 6).?;
         try std.testing.expectEqualStrings("Self", value.getText());
         const id = fromToken(context, value);
-        try std.testing.expectEqual(AstIdentifierKind.var_name, id.kind);
+        try std.testing.expectEqual(AstIdentifierKind.var_decl, id.kind);
     }
     {
         const value = context.getToken(11, 28).?;
@@ -251,21 +240,9 @@ test {
         try std.testing.expectEqual(AstIdentifierKind.if_payload, id.kind);
     }
     {
-        const value = context.getToken(10, 3).?;
-        try std.testing.expectEqualStrings("get", value.getText());
-        const id = fromToken(context, value);
-        try std.testing.expectEqual(AstIdentifierKind.function_name, id.kind);
-    }
-    {
-        const value = context.getToken(10, 7).?;
-        try std.testing.expectEqualStrings("self", value.getText());
-        const id = fromToken(context, value);
-        try std.testing.expectEqual(AstIdentifierKind.function_param_name, id.kind);
-    }
-    {
         const value = context.getToken(3, 0).?;
         try std.testing.expectEqualStrings("value", value.getText());
         const id = fromToken(context, value);
-        try std.testing.expectEqual(AstIdentifierKind.field_name, id.kind);
+        try std.testing.expectEqual(AstIdentifierKind.container_field, id.kind);
     }
 }

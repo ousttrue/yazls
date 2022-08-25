@@ -300,5 +300,5 @@ test {
     // for (resolver.path.items) |p, i| {
     //     std.debug.print("[{}] {s}: {s}\n", .{ i, p.context.path.slice(), p.getText() });
     // }
-    try std.testing.expectEqual(resolved.kind, .{ .primitive = PrimitiveType.bool });
+    try std.testing.expectEqual(resolved.kind, .fn_decl);
 }
