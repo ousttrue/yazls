@@ -12,6 +12,7 @@ const Document = astutil.Document;
 const AstToken = astutil.AstToken;
 const AstNode = astutil.AstNode;
 const TypeResolver = astutil.TypeResolver;
+const LiteralType = astutil.literals.LiteralType;
 
 const ZigEnv = @import("./ZigEnv.zig");
 const Diagnostic = @import("./Diagnostic.zig");
@@ -392,9 +393,15 @@ pub fn @"textDocument/hover"(
     const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
     const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
     const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
+        // no token under cursor
         return json_util.allocToResponse(arena.allocator(), id, null);
     };
     if (token.getTag() != .identifier) {
+        // skip token that is not identifier
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    }
+    if (LiteralType.fromName(token.getText())) |_| {
+        // skip literal. null, true, false, undefined...
         return json_util.allocToResponse(arena.allocator(), id, null);
     }
 

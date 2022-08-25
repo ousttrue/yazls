@@ -207,6 +207,9 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                     .kind = .fn_proto,
                 };
             },
+            .@"switch" => |full| {
+                return self.resolve(project, AstNode.init(node.context, full.ast.cond_expr));
+            },
             else => {
                 switch (node.getTag()) {
                     .identifier => {

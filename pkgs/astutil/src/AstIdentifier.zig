@@ -117,24 +117,6 @@ pub fn init(node: AstNode) ?Self {
                         .kind = .field_access,
                     };
                 },
-                // .enum_literal => {
-                //     return Self{
-                //         .node = node,
-                //         .kind = .enum_literal,
-                //     };
-                // },
-                // .error_value => {
-                //     return Self{
-                //         .node = node,
-                //         .kind = .error_value,
-                //     };
-                // },
-                // .fn_decl => {
-                //     return Self{
-                //         .node = node,
-                //         .kind = .fn_decl,
-                //     };
-                // },
                 else => {
                     return null;
                 },
@@ -227,18 +209,6 @@ pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !
                 unreachable;
             },
         },
-        // .fn_decl => {
-        //     return node;
-        // },
-        // .fn_proto => {
-        //     return node;
-        // },
-        // .enum_literal => {
-        //     unreachable;
-        // },
-        // .error_value => {
-        //     unreachable;
-        // },
     };
 
     return TypeNode{
