@@ -28,6 +28,7 @@ pub const AstType = struct {
         literal,
         block,
         call,
+        struct_init,
     },
 };
 
@@ -71,17 +72,6 @@ fn getReturnNode(node: AstNode) ?AstNode {
 }
 
 pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
-    // if (node.getParent()) |parent| {
-    //     // call
-    //     var buf: [2]u32 = undefined;
-    //     switch (parent.getChildren(&buf)) {
-    //         .call => {
-    //             return self.resolve(project, parent);
-    //         },
-    //         else => {},
-    //     }
-    // }
-
     // debug
     if (self.path.items.len >= 100 or contains(self.path.items, node)) {
         std.debug.print("\n", .{});
@@ -136,26 +126,9 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
             .var_decl => {
                 return self.resolve(project, node);
             },
-            // .container_field => |full| {
-            //     return self.resolve(project, AstNode.init(node.context, full.ast.type_expr));
-            // },
             .call => |call| {
                 const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
                 std.debug.assert(fn_decl.node.getTag() == .fn_decl);
-                // const fn_node = AstNode.init(fn_decl.node.context, fn_decl.node.getData().lhs);
-                // var buf2: [2]u32 = undefined;
-                // switch (fn_node.getChildren(&buf2)) {
-                //     .fn_proto => |fn_proto| {
-                //         return try self.resolve(project, AstNode.init(fn_node.context, fn_proto.ast.return_type));
-                //     },
-                //     else => {
-                //         return error.FnProtoNotFound;
-                //     },
-                // }
-                // return AstType{
-                //     .node = node,
-                //     .kind = .call,
-                // };
                 const signature = try FunctionSignature.fromNode(self.allocator, fn_decl.node, 0);
                 defer signature.deinit();
                 return self.resolve(project, signature.return_type_node);
@@ -209,6 +182,12 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
             },
             .@"switch" => |full| {
                 return self.resolve(project, AstNode.init(node.context, full.ast.cond_expr));
+            },
+            .struct_init => {
+                return AstType{
+                    .node = node,
+                    .kind = .struct_init,
+                };
             },
             else => {
                 switch (node.getTag()) {
