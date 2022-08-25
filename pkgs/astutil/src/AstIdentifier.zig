@@ -5,14 +5,18 @@ const AstNode = @import("./AstNode.zig");
 const Utf8Buffer = @import("./Utf8Buffer.zig");
 const Project = @import("./Project.zig");
 const Declaration = @import("./declaration.zig").Declaration;
+const PrimitiveType = @import("./primitives.zig").PrimitiveType;
+const LiteralType = @import("./literals.zig").LiteralType;
 const logger = std.log.scoped(.AstIdentifier);
 
 pub const AstIdentifierKind = enum {
     /// top level reference
+    /// u32; primitive
+    /// null, undfined; literal
     /// std.zig.Ast;
     /// ^
-    /// to resolve type, search scope for name symbol
-    reference,
+    /// primitive or literal or type reference
+    identifier,
     /// field access
     /// std.zig.Ast;
     ///     ^   ^
@@ -47,6 +51,12 @@ pub const AstIdentifierKind = enum {
     // fn_decl,
     // enum_literal,
     // error_value,
+};
+
+pub const TypeNode = union(enum) {
+    node: AstNode,
+    primitive: PrimitiveType,
+    literal: LiteralType,
 };
 
 const Self = @This();
@@ -98,7 +108,7 @@ pub fn init(node: AstNode) ?Self {
                 .identifier => {
                     return Self{
                         .node = node,
-                        .kind = .reference,
+                        .kind = .identifier,
                     };
                 },
                 .field_access => {
@@ -139,90 +149,83 @@ pub fn fromToken(context: *const AstContext, token: AstToken) Self {
     return init(node);
 }
 
-pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !AstNode {
+pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !TypeNode {
     const node = self.node;
     var buf: [2]u32 = undefined;
-    switch (self.kind) {
-        .field_access => {
-            return try project.resolveFieldAccess(allocator, node);
-        },
-        .reference => {
-            if (Declaration.find(node)) |decl| {
-                return try decl.getTypeNode();
+    const type_node = switch (self.kind) {
+        .field_access => try project.resolveFieldAccess(allocator, node),
+        .identifier => blk: {
+            if (PrimitiveType.fromName(node.getText())) |primitive| {
+                return TypeNode{
+                    .primitive = primitive,
+                };
+            } else if (LiteralType.fromName(node.getText())) |literal| {
+                return TypeNode{
+                    .literal = literal,
+                };
+            } else if (Declaration.find(node)) |decl| {
+                break :blk try decl.getTypeNode();
             } else {
-                return error.NoDecl;
+                logger.err("{s}", .{node.getText()});
+                return error.NoDeclForIdentifier;
             }
         },
-        .container_field => {
-            switch (node.getChildren(&buf)) {
-                .container_field => |full| {
-                    return AstNode.init(node.context, full.ast.type_expr);
-                },
-                else => {
-                    unreachable;
-                },
-            }
+        .container_field => switch (node.getChildren(&buf)) {
+            .container_field => |full| AstNode.init(node.context, full.ast.type_expr),
+            else => {
+                unreachable;
+            },
         },
-        .var_decl => {
-            switch (node.getChildren(&buf)) {
-                .var_decl => |full| {
-                    if (full.ast.type_node != 0) {
-                        return AstNode.init(node.context, full.ast.type_node);
-                    } else if (full.ast.init_node != 0) {
-                        return AstNode.init(node.context, full.ast.init_node);
-                    } else {
-                        unreachable;
+        .var_decl => switch (node.getChildren(&buf)) {
+            .var_decl => |full| if (full.ast.type_node != 0)
+                AstNode.init(node.context, full.ast.type_node)
+            else if (full.ast.init_node != 0)
+                AstNode.init(node.context, full.ast.init_node)
+            else {
+                unreachable;
+            },
+            else => {
+                unreachable;
+            },
+        },
+        .if_payload => switch (node.getChildren(&buf)) {
+            .@"if" => |full| blk: {
+                std.debug.assert(full.payload_token != null);
+                break :blk AstNode.init(node.context, full.ast.cond_expr);
+            },
+            else => {
+                unreachable;
+            },
+        },
+        .while_payload => switch (node.getChildren(&buf)) {
+            .@"while" => |full| blk: {
+                std.debug.assert(full.payload_token != null);
+                break :blk AstNode.init(node.context, full.ast.cond_expr);
+            },
+            else => {
+                unreachable;
+            },
+        },
+        .switch_case_payload => switch (node.getChildren(&buf)) {
+            .switch_case => |full| blk: {
+                std.debug.assert(full.payload_token != null);
+                if (node.getParent()) |parent| {
+                    std.debug.assert(parent.isChildrenTagName("switch"));
+                    switch (parent.getChildren(&buf)) {
+                        .@"switch" => |switch_full| {
+                            break :blk AstNode.init(node.context, switch_full.ast.cond_expr);
+                        },
+                        else => {
+                            unreachable;
+                        },
                     }
-                },
-                else => {
-                    unreachable;
-                },
-            }
-        },
-        .if_payload => {
-            switch (node.getChildren(&buf)) {
-                .@"if" => |full| {
-                    std.debug.assert(full.payload_token != null);
-                    return AstNode.init(node.context, full.ast.cond_expr);
-                },
-                else => {
-                    unreachable;
-                },
-            }
-        },
-        .while_payload => {
-            switch (node.getChildren(&buf)) {
-                .@"while" => |full| {
-                    std.debug.assert(full.payload_token != null);
-                    return AstNode.init(node.context, full.ast.cond_expr);
-                },
-                else => {
-                    unreachable;
-                },
-            }
-        },
-        .switch_case_payload => {
-            switch (node.getChildren(&buf)) {
-                .switch_case => |full| {
-                    std.debug.assert(full.payload_token != null);
-                    if (node.getParent()) |parent| {
-                        std.debug.assert(parent.getTag() == .@"switch");
-                        switch (parent.getChildren(&buf)) {
-                            .@"switch" => |switch_full| {
-                                return AstNode.init(node.context, switch_full.ast.cond_expr);
-                            },
-                            else => {
-                                unreachable;
-                            },
-                        }
-                    } else {
-                        return error.NoSwitch;
-                    }
-                },
-                else => {
-                    unreachable;
-                },
-            }
+                } else {
+                    return error.NoSwitchCaseParent;
+                }
+            },
+            else => {
+                unreachable;
+            },
         },
         // .fn_decl => {
         //     return node;
@@ -236,7 +239,11 @@ pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !
         // .error_value => {
         //     unreachable;
         // },
-    }
+    };
+
+    return TypeNode{
+        .node = type_node,
+    };
 }
 
 test {

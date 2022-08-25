@@ -96,15 +96,33 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
     }
     try self.path.append(node);
 
-    if (PrimitiveType.fromName(node.getText())) |primitive| {
-        return AstType{
-            .node = node,
-            .kind = .{ .primitive = primitive },
-        };
-    } else if (AstIdentifier.init(node)) |id| {
+    if (AstIdentifier.init(node)) |id| {
         // get_type from identifier
-        const type_node = try id.getTypeNode(self.allocator, project);
-        return self.resolve(project, type_node);
+        switch (try id.getTypeNode(self.allocator, project)) {
+            .primitive => |primitive| {
+                return AstType{
+                    .node = node,
+                    .kind = .{ .primitive = primitive },
+                };
+            },
+            .literal => |literal| {
+                switch (literal) {
+                    .@"true", .@"false" => {
+                        return AstType{
+                            .node = node,
+                            .kind = .{ .primitive = PrimitiveType.bool },
+                        };
+                    },
+                    .@"null", .@"undefined" => {
+                        logger.err("type? {s}", .{node.getText()});
+                        return error.NullValue;
+                    },
+                }
+            },
+            .node => |type_node| {
+                return self.resolve(project, type_node);
+            },
+        }
     } else {
         // type node
         var buf: [2]u32 = undefined;
@@ -201,7 +219,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                             const type_node = try decl.getTypeNode();
                             return self.resolve(project, type_node);
                         } else {
-                            return error.NoDecl;
+                            return error.NoDeclForType;
                         }
                     },
                     .field_access => {
