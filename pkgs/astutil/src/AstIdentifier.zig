@@ -9,7 +9,7 @@ const PrimitiveType = @import("./primitives.zig").PrimitiveType;
 const LiteralType = @import("./literals.zig").LiteralType;
 const logger = std.log.scoped(.AstIdentifier);
 
-pub const AstIdentifierKind = enum {
+pub const AstIdentifierKind = union(enum) {
     /// top level reference
     /// u32; primitive
     /// null, undfined; literal
@@ -46,6 +46,11 @@ pub const AstIdentifierKind = enum {
     ///               ^
     /// to resolve condition_node
     switch_case_payload,
+
+    /// function parameter
+    /// fn func_name(param: type) void;
+    ///              ^
+    function_param: u32,
 };
 
 pub const TypeNode = union(enum) {
@@ -59,7 +64,7 @@ const Self = @This();
 node: AstNode,
 kind: AstIdentifierKind,
 
-pub fn init(node: AstNode) ?Self {
+pub fn init(node: AstNode, token: ?AstToken) ?Self {
     var buf: [2]u32 = undefined;
     switch (node.getChildren(&buf)) {
         .var_decl => {
@@ -91,6 +96,27 @@ pub fn init(node: AstNode) ?Self {
                 .node = node,
                 .kind = .container_field,
             };
+        },
+        .fn_proto => |fn_proto| {
+            if (token) |t| {
+                var it = fn_proto.iterate(&node.context.tree);
+                var i: u32 = 0;
+                while (it.next()) |param| : (i += 1) {
+                    if (param.name_token) |name_token| {
+                        if (name_token == t.index) {
+                            return Self{
+                                .node = node,
+                                .kind = .{ .function_param = i },
+                            };
+                        }
+                    }
+                }
+                logger.err("token not found: {s} => {s}", .{ t.getText(), node.getText() });
+                return null;
+            } else {
+                logger.err("no token: {s}", .{node.getText()});
+                return null;
+            }
         },
         else => {
             switch (node.getTag()) {
@@ -196,6 +222,24 @@ pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !
             },
             else => {
                 unreachable;
+            },
+        },
+        .function_param => |index| switch(node.getChildren(&buf))
+        {
+            .fn_proto => |fn_proto| blk: {
+                var it = fn_proto.iterate(&node.context.tree);
+                var i: u32 = 0;
+                while(it.next())|param|:(i+=1)
+                {
+                    if(i==index)
+                    {
+                        break :blk AstNode.init(node.context, param.type_expr);
+                    }
+                }
+                unreachable;
+            },
+            else => {
+                    return error.NoFnProto;
             },
         },
     };

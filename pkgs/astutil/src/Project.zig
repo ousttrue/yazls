@@ -94,6 +94,6 @@ pub fn resolveFieldAccess(self: Self, allocator: std.mem.Allocator, node: AstNod
 pub fn resolveType(self: Self, allocator: std.mem.Allocator, node: AstNode) !AstNode {
     var resolver = TypeResolver.init(allocator);
     defer resolver.deinit();
-    const resolved = try resolver.resolve(self, node);
+    const resolved = try resolver.resolve(self, node, null);
     return resolved.node;
 }

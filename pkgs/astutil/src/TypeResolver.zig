@@ -30,6 +30,24 @@ pub const AstType = struct {
         call,
         struct_init,
     },
+
+    pub fn allocPrint(self: @This(), allocator: std.mem.Allocator) ![]const u8 {
+        var buf = std.ArrayList(u8).init(allocator);
+        const w = buf.writer();
+
+        switch (self.kind) {
+            .primitive => |prim| {
+                try w.print("{s}", .{@tagName(prim)});
+            },
+            else => {
+                const text = try self.node.allocPrint(allocator);
+                defer allocator.free(text);
+                try w.print("[{s}] {s}", .{ @tagName(self.kind), text });
+            },
+        }
+
+        return buf.toOwnedSlice();
+    }
 };
 
 allocator: std.mem.Allocator,
@@ -71,7 +89,7 @@ fn getReturnNode(node: AstNode) ?AstNode {
     return null;
 }
 
-pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
+pub fn resolve(self: *Self, project: Project, node: AstNode, param_token: ?AstToken) anyerror!AstType {
     // debug
     if (self.path.items.len >= 100 or contains(self.path.items, node)) {
         std.debug.print("\n", .{});
@@ -86,7 +104,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
     }
     try self.path.append(node);
 
-    if (AstIdentifier.init(node)) |id| {
+    if (AstIdentifier.init(node, param_token)) |id| {
         // get_type from identifier
         switch (try id.getTypeNode(self.allocator, project)) {
             .primitive => |primitive| {
@@ -110,7 +128,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 }
             },
             .node => |type_node| {
-                return self.resolve(project, type_node);
+                return self.resolve(project, type_node, null);
             },
         }
     } else {
@@ -124,14 +142,14 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 };
             },
             .var_decl => {
-                return self.resolve(project, node);
+                return self.resolve(project, node, null);
             },
             .call => |call| {
-                const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr));
+                const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr), null);
                 std.debug.assert(fn_decl.node.getTag() == .fn_decl);
                 const signature = try FunctionSignature.fromNode(self.allocator, fn_decl.node, 0);
                 defer signature.deinit();
-                return self.resolve(project, signature.return_type_node);
+                return self.resolve(project, signature.return_type_node, null);
             },
             .builtin_call => {
                 const builtin_name = node.getMainToken().getText();
@@ -166,7 +184,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 }
             },
             .ptr_type => |ptr_type| {
-                return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type));
+                return self.resolve(project, AstNode.init(node.context, ptr_type.ast.child_type), null);
             },
             .block => {
                 return AstType{
@@ -181,7 +199,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                 };
             },
             .@"switch" => |full| {
-                return self.resolve(project, AstNode.init(node.context, full.ast.cond_expr));
+                return self.resolve(project, AstNode.init(node.context, full.ast.cond_expr), null);
             },
             .struct_init => {
                 return AstType{
@@ -199,7 +217,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                             };
                         } else if (Declaration.find(node)) |decl| {
                             const type_node = try decl.getTypeNode();
-                            return self.resolve(project, type_node);
+                            return self.resolve(project, type_node, null);
                         } else {
                             return error.NoDeclForType;
                         }
@@ -214,11 +232,11 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                                 // field is fn_decl or fn_proto
                                 const signature = try FunctionSignature.fromNode(self.allocator, field, 0);
                                 defer signature.deinit();
-                                return self.resolve(project, signature.return_type_node);
+                                return self.resolve(project, signature.return_type_node, null);
                             }
                         }
 
-                        return self.resolve(project, field);
+                        return self.resolve(project, field, null);
                     },
                     .fn_decl => {
                         return AstType{
@@ -245,10 +263,10 @@ pub fn resolve(self: *Self, project: Project, node: AstNode) anyerror!AstType {
                         };
                     },
                     .optional_type, .@"try", .@"orelse", .array_access => {
-                        return self.resolve(project, AstNode.init(node.context, node.getData().lhs));
+                        return self.resolve(project, AstNode.init(node.context, node.getData().lhs), null);
                     },
                     .error_union, .array_type => {
-                        return self.resolve(project, AstNode.init(node.context, node.getData().rhs));
+                        return self.resolve(project, AstNode.init(node.context, node.getData().rhs), null);
                     },
                     else => {},
                 }

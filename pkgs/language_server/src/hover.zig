@@ -24,7 +24,7 @@ pub fn getHover(
         const text = try signature.allocPrintSignature(allocator);
         try w.print("\n```zig\n{s}\n```\n", .{text});
     } else |_| {
-        const text = try resolved.node.allocPrint(allocator);
+        const text = try resolved.allocPrint(allocator);
         try w.print("resolved: {s}", .{text});
     }
     return text_buffer.toOwnedSlice();

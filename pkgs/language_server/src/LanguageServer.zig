@@ -408,7 +408,7 @@ pub fn @"textDocument/hover"(
     const node = AstNode.fromTokenIndex(doc.ast_context, token.index);
     var resolver = TypeResolver.init(arena.allocator());
     defer resolver.deinit();
-    const resolved = try resolver.resolve(self.project(), node);
+    const resolved = try resolver.resolve(self.project(), node, token);
     const text = try hover.getHover(arena.allocator(), token, node, resolved);
 
     var range: ?lsp.types.Range = null;
