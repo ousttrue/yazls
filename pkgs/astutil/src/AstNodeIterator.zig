@@ -313,6 +313,14 @@ fn setIfNotZero(self: *Self, value: Ast.Node.Index) void {
 }
 
 fn addChildren(self: *Self, comptime T: type, t: T) void {
+    if(T==Ast.full.FnProto)
+    {
+        var it = t.iterator();
+        while(it.next())|param|
+        {
+            self.setIfNotZero(param.type_expr);
+        }
+    }
     const info = @typeInfo(T);
     switch (info) {
         .Struct => |s| {
