@@ -73,15 +73,24 @@ fn contains(items: []const AstNode, find: AstNode) bool {
     return false;
 }
 
-fn getReturnNode(node: AstNode) ?AstNode {
+fn getReturnNode(node: AstNode, is_container_decl: bool) ?AstNode {
     if (node.getTag() == .@"return") {
-        return AstNode.init(node.context, node.getData().lhs);
+        const lhs = AstNode.init(node.context, node.getData().lhs);
+        if (is_container_decl) {
+            if (lhs.isChildrenTagName("container_decl")) {
+                return lhs;
+            }
+        } else {
+            if (!lhs.isChildrenTagName("container_decl")) {
+                return lhs;
+            }
+        }
     }
 
     var it = AstNodeIterator.init(node.index);
     _ = async it.iterateAsync(&node.context.tree);
     while (it.value) |value| : (it.next()) {
-        if (getReturnNode(AstNode.init(node.context, value))) |found| {
+        if (getReturnNode(AstNode.init(node.context, value), is_container_decl)) |found| {
             return found;
         }
     }
@@ -149,7 +158,24 @@ pub fn resolve(self: *Self, project: Project, node: AstNode, param_token: ?AstTo
                 std.debug.assert(fn_decl.node.getTag() == .fn_decl);
                 const signature = try FunctionSignature.fromNode(self.allocator, fn_decl.node, 0);
                 defer signature.deinit();
-                return self.resolve(project, signature.return_type_node, null);
+                const resolved = try self.resolve(project, signature.return_type_node, null);
+                switch (resolved.kind) {
+                    .primitive => |prim| {
+                        if (prim == PrimitiveType.type) {
+                            if (getReturnNode(fn_decl.node, true)) |type_type| {
+                                logger.err("getReturnNode => {}: {s}", .{ type_type.getTag(), type_type.getText() });
+                                return self.resolve(project, type_type, null);
+                            } else if (getReturnNode(fn_decl.node, false)) |type_type| {
+                                logger.err("getReturnNode => {}: {s}", .{ type_type.getTag(), type_type.getText() });
+                                return self.resolve(project, type_type, null);
+                            } else {
+                                return error.NoTypeForType;
+                            }
+                        }
+                    },
+                    else => {},
+                }
+                return resolved;
             },
             .builtin_call => {
                 const builtin_name = node.getMainToken().getText();

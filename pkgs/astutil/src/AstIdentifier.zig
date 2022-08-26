@@ -163,7 +163,7 @@ pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !
             } else if (Declaration.find(node)) |decl| {
                 break :blk try decl.getTypeNode();
             } else {
-                logger.err("{s}", .{node.getText()});
+                logger.err("{s}: {}: {s}", .{node.context.path.getName(), node.getTag(), node.getText()});
                 return error.NoDeclForIdentifier;
             }
         },

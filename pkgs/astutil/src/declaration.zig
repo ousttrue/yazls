@@ -351,6 +351,9 @@ pub const Declaration = union(enum) {
                 if (findFromContainerNode(current, symbol)) |decl| {
                     return decl;
                 }
+                if (findFromBlockNode(current, symbol)) |local| {
+                    return local;
+                }
             }
         }
 
