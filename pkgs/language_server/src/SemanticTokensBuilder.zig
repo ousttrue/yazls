@@ -139,7 +139,7 @@ fn is_variable(node_tag: std.zig.Ast.Node.Tag) bool {
 }
 
 fn is_literal(name: []const u8) bool {
-    for ([_][]const u8{ "true", "false", "null", "undefined" }) |value| {
+    for ([_][]const u8{ "true", "false", "null", "undefined", "anyerror" }) |value| {
         if (std.mem.eql(u8, name, value)) {
             return true;
         }
