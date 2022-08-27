@@ -92,6 +92,22 @@ pub fn allocPrint(self: Self, allocator: std.mem.Allocator) ![]const u8 {
     return buffer.items;
 }
 
+pub fn containsToken(self: Self, token: u32) bool
+{
+    const tree = &self.context.tree;
+    const first = tree.firstToken(self.index);
+    if(token<first)
+    {
+        return false;
+    }
+    const last = tree.lastToken(self.index);
+    if(token>last)
+    {
+        return false;
+    }
+    return true;
+}
+
 pub fn getText(self: Self) []const u8 {
     const tree = &self.context.tree;
     const first = AstToken.init(tree, tree.firstToken(self.index)).getLoc();

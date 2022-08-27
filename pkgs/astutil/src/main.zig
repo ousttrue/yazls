@@ -1,6 +1,7 @@
 const std = @import("std");
 pub const AstToken = @import("./AstToken.zig");
 pub const AstTokenSemantic = @import("./AstTokenSemantic.zig");
+pub const AstNodeSemantic = @import("./AstNodeSemantic.zig");
 pub const AstNodeIterator = @import("./AstNodeIterator.zig");
 pub const AstNode = @import("./AstNode.zig");
 pub const AstContext = @import("./AstContext.zig");
