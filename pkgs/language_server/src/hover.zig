@@ -6,6 +6,7 @@ const Declaration = astutil.Declaration;
 const FunctionSignature = astutil.FunctionSignature;
 const AstIdentifier = astutil.AstIdentifier;
 const TypeResolver = astutil.TypeResolver;
+const AstIdentifierSemantic = astutil.AstIdentifierSemantic;
 // const builtin_completions = @import("./builtin_completions.zig");
 const logger = std.log.scoped(.Hover);
 
@@ -20,6 +21,15 @@ pub fn getHover(
     const token_info = try token.allocPrint(allocator);
     const node_info = try node.allocPrint(allocator);
     try w.print("`{s} => {s}`\n\n", .{ node_info, token_info });
+
+    // semantic
+    {
+        const semantic = AstIdentifierSemantic.init(node.context, token.index);
+        const text = try semantic.allocPrint(allocator);
+        try w.print("{s}\n\n", .{text});
+    }
+
+    // type resolver
     if (FunctionSignature.fromNode(allocator, resolved.node, 0)) |signature| {
         const text = try signature.allocPrintSignature(allocator);
         try w.print("\n```zig\n{s}\n```\n", .{text});

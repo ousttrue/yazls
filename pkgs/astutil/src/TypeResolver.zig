@@ -340,7 +340,7 @@ test {
     defer resolver.deinit();
 
     std.debug.print("node: {} '{s}'\n", .{ node.getTag(), node.getText() });
-    const resolved = try resolver.resolve(project, node);
+    const resolved = try resolver.resolve(project, node, mem);
     // for (resolver.path.items) |p, i| {
     //     std.debug.print("[{}] {s}: {s}\n", .{ i, p.context.path.slice(), p.getText() });
     // }

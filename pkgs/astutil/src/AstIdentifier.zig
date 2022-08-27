@@ -143,7 +143,7 @@ pub fn init(node: AstNode, token: ?AstToken) ?Self {
 pub fn fromToken(context: *const AstContext, token: AstToken) Self {
     std.debug.assert(token.getTag() == .identifier);
     const node = AstNode.fromTokenIndex(context, token.index);
-    return init(node).?;
+    return init(node, token).?;
 }
 
 pub fn getTypeNode(self: Self, allocator: std.mem.Allocator, project: Project) !TypeNode {

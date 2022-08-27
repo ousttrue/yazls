@@ -5,6 +5,7 @@ const SemanticTokenType = semantic_tokens.SemanticTokenType;
 const SemanticTokenModifiers = semantic_tokens.SemanticTokenModifiers;
 const Document = astutil.Document;
 const AstNodeIterator = astutil.AstNodeIterator;
+const AstIdentifierSemantic = astutil.AstIdentifierSemantic;
 const logger = std.log.scoped(.SemanticTokens);
 const Self = @This();
 
@@ -157,80 +158,105 @@ fn is_type(name: []const u8) bool {
 }
 
 fn push_identifier(self: *Self, token_idx: u32, loc: std.zig.Token.Loc) !void {
-    const ast_context = self.document.ast_context;
-    const idx = ast_context.tokens_node[token_idx];
-    const tag = ast_context.tree.nodes.items(.tag);
-    const node_tag = tag[idx];
-    const name = ast_context.getText(loc);
-    var buffer: [2]u32 = undefined;
-    const children = AstNodeIterator.NodeChildren.init(&ast_context.tree, idx, &buffer);
-    switch (children) {
-        .var_decl => {
-            if (std.ascii.isUpper(name[0])) {
-                try self.push_semantic_token(loc, .type, .{});
-            } else {
-                try self.push_semantic_token(loc, .variable, .{});
-            }
+    const semantic = AstIdentifierSemantic.init(self.document.ast_context, token_idx);
+    switch (semantic.kind) {
+        .containerVarName => {
+            try self.push_semantic_token(loc, .variable, .{});
         },
-        .array_type => {},
-        .ptr_type => {
+        .fieldName => {
+            try self.push_semantic_token(loc, .property, .{});
+        },
+        .fieldType => {
             try self.push_semantic_token(loc, .type, .{});
         },
-        .slice => {},
-        .array_init => {},
-        .struct_init => {
-            try self.push_semantic_token(loc, .property, .{});
+        .fnName => {
+            try self.push_semantic_token(loc, .function, .{});
         },
-        .call => {},
-        .@"switch" => {},
-        .switch_case => |switch_case| {
-            if (token_idx == switch_case.payload_token) {
-                try self.push_semantic_token(loc, .variable, .{});
-            }
+        .fnParamName => {
+            try self.push_semantic_token(loc, .parameter, .{});
         },
-        .@"while" => {
-            try self.push_semantic_token(loc, .variable, .{});
+        .fnParamType => {
+            try self.push_semantic_token(loc, .type, .{});
         },
-        .@"if" => {
-            try self.push_semantic_token(loc, .variable, .{});
+        .fnReturnType => {
+            try self.push_semantic_token(loc, .type, .{});
         },
-        .fn_proto => |fn_proto| {
-            if (token_idx == fn_proto.name_token) {
-                try self.push_semantic_token(loc, .function, .{});
-            } else {
-                try self.push_semantic_token(loc, .parameter, .{});
-            }
-        },
-        .container_decl => {},
-        .container_field => {
-            try self.push_semantic_token(loc, .property, .{});
-        },
-        .@"asm" => {},
-        else => {
-            switch (node_tag) {
-                .enum_literal, .error_value => {
-                    try self.push_semantic_token(loc, .enumMember, .{});
-                },
-                .identifier, .field_access => {
-                    if (is_literal(name)) {
-                        try self.push_semantic_token(loc, .keyword, .{});
-                    } else if (std.ascii.isUpper(name[0])) {
-                        try self.push_semantic_token(loc, .type, .{});
-                    } else if (is_type(name)) {
-                        try self.push_semantic_token(loc, .type, .{});
-                    } else {
-                        try self.push_semantic_token(loc, .variable, .{});
-                    }
-                },
-                .@"break", .block_semicolon => {
-                    try self.push_semantic_token(loc, .event, .{});
-                },
-                else => {
-                    // try self.push_semantic_token(loc, .variable, .{});
-                },
-            }
-        },
+        else =>{},
     }
+    // const ast_context = self.document.ast_context;
+    // const idx = ast_context.tokens_node[token_idx];
+    // const tag = ast_context.tree.nodes.items(.tag);
+    // const node_tag = tag[idx];
+    // const name = ast_context.getText(loc);
+    // var buffer: [2]u32 = undefined;
+    // const children = AstNodeIterator.NodeChildren.init(&ast_context.tree, idx, &buffer);
+    // switch (children) {
+    //     .var_decl => {
+    //         if (std.ascii.isUpper(name[0])) {
+    //             try self.push_semantic_token(loc, .type, .{});
+    //         } else {
+    //             try self.push_semantic_token(loc, .variable, .{});
+    //         }
+    //     },
+    //     .array_type => {},
+    //     .ptr_type => {
+    //         try self.push_semantic_token(loc, .type, .{});
+    //     },
+    //     .slice => {},
+    //     .array_init => {},
+    //     .struct_init => {
+    //         try self.push_semantic_token(loc, .property, .{});
+    //     },
+    //     .call => {},
+    //     .@"switch" => {},
+    //     .switch_case => |switch_case| {
+    //         if (token_idx == switch_case.payload_token) {
+    //             try self.push_semantic_token(loc, .variable, .{});
+    //         }
+    //     },
+    //     .@"while" => {
+    //         try self.push_semantic_token(loc, .variable, .{});
+    //     },
+    //     .@"if" => {
+    //         try self.push_semantic_token(loc, .variable, .{});
+    //     },
+    //     .fn_proto => |fn_proto| {
+    //         if (token_idx == fn_proto.name_token) {
+    //             try self.push_semantic_token(loc, .function, .{});
+    //         } else {
+    //             try self.push_semantic_token(loc, .parameter, .{});
+    //         }
+    //     },
+    //     .container_decl => {},
+    //     .container_field => {
+    //         try self.push_semantic_token(loc, .property, .{});
+    //     },
+    //     .@"asm" => {},
+    //     else => {
+    //         switch (node_tag) {
+    //             .enum_literal, .error_value => {
+    //                 try self.push_semantic_token(loc, .enumMember, .{});
+    //             },
+    //             .identifier, .field_access => {
+    //                 if (is_literal(name)) {
+    //                     try self.push_semantic_token(loc, .keyword, .{});
+    //                 } else if (std.ascii.isUpper(name[0])) {
+    //                     try self.push_semantic_token(loc, .type, .{});
+    //                 } else if (is_type(name)) {
+    //                     try self.push_semantic_token(loc, .type, .{});
+    //                 } else {
+    //                     try self.push_semantic_token(loc, .variable, .{});
+    //                 }
+    //             },
+    //             .@"break", .block_semicolon => {
+    //                 try self.push_semantic_token(loc, .event, .{});
+    //             },
+    //             else => {
+    //                 // try self.push_semantic_token(loc, .variable, .{});
+    //             },
+    //         }
+    //     },
+    // }
 }
 
 fn push_semantic_token(
@@ -250,8 +276,7 @@ fn push_semantic_token(
     });
 }
 
-fn pushLineCommments(self: *Self, text:[]const u8, start: usize, end: usize) !void
-{
+fn pushLineCommments(self: *Self, text: []const u8, start: usize, end: usize) !void {
     var j = start;
     var in_comment: ?usize = null;
     while (j < end) {
