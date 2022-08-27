@@ -118,7 +118,7 @@ pub fn allocPrint(self: @This(), allocator: std.mem.Allocator) ![]const u8 {
     return buf.toOwnedSlice();
 }
 
-test "AstIdentifierSemantic" {
+test "AstTokenSemantic" {
     const source = @embedFile("test_source.zig");
     const allocator = std.testing.allocator;
     const text: [:0]const u8 = try allocator.dupeZ(u8, source);

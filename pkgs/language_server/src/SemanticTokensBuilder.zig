@@ -5,7 +5,7 @@ const SemanticTokenType = semantic_tokens.SemanticTokenType;
 const SemanticTokenModifiers = semantic_tokens.SemanticTokenModifiers;
 const Document = astutil.Document;
 const AstNodeIterator = astutil.AstNodeIterator;
-const AstIdentifierSemantic = astutil.AstIdentifierSemantic;
+const AstTokenSemantic = astutil.AstTokenSemantic;
 const logger = std.log.scoped(.SemanticTokens);
 const Self = @This();
 
@@ -158,7 +158,7 @@ fn is_type(name: []const u8) bool {
 }
 
 fn push_identifier(self: *Self, token_idx: u32, loc: std.zig.Token.Loc) !void {
-    const semantic = AstIdentifierSemantic.init(self.document.ast_context, token_idx);
+    const semantic = AstTokenSemantic.init(self.document.ast_context, token_idx);
     switch (semantic.kind) {
         .containerVarName => {
             try self.push_semantic_token(loc, .variable, .{});
