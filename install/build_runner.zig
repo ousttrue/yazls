@@ -67,11 +67,11 @@ const Aggregator = struct {
                 var compile_options = std.ArrayList([]const u8).init(self.arena.allocator());
                 for (exe.include_dirs.items) |item| {
                     switch (item) {
-                        .raw_path, .raw_path_system => |path| {
+                        .raw_path, .raw_path_system => |include_path| {
                             try compile_options.append(try std.fmt.allocPrint(
                                 self.arena.allocator(),
                                 "-I{s}",
-                                .{path},
+                                .{include_path},
                             ));
                         },
                         else => {},
