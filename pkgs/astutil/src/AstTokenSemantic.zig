@@ -72,7 +72,10 @@ pub fn init(context: *const AstContext, token_index: u32) Self {
                 },
                 else => {},
             }
-            unreachable;
+            return Self{
+                .token_index = token_index,
+                .kind = .{ .unknown = node },
+            };
         },
         .fieldDecl => |semantic_node| {
             switch (semantic_node.getChildren(&buf)) {
