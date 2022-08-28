@@ -66,11 +66,16 @@ const Aggregator = struct {
             if (fileSourcePath(root_src)) |path| {
                 var compile_options = std.ArrayList([]const u8).init(self.arena.allocator());
                 for (exe.include_dirs.items) |item| {
-                    try compile_options.append(try std.fmt.allocPrint(
-                        self.arena.allocator(),
-                        "-I{s}",
-                        .{item.raw_path},
-                    ));
+                    switch (item) {
+                        .raw_path, .raw_path_system => |path| {
+                            try compile_options.append(try std.fmt.allocPrint(
+                                self.arena.allocator(),
+                                "-I{s}",
+                                .{path},
+                            ));
+                        },
+                        else => {},
+                    }
                 }
                 for (exe.c_macros.items) |item| {
                     try compile_options.append(try std.fmt.allocPrint(
