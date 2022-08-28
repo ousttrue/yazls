@@ -154,18 +154,17 @@ pub fn resolve(self: *Self, project: Project, node: AstNode, param_token: ?AstTo
                 return self.resolve(project, node, null);
             },
             .call => |call| {
-                const fn_decl = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr), null);
-                std.debug.assert(fn_decl.node.getTag() == .fn_decl);
-                const signature = try FunctionSignature.fromNode(self.allocator, fn_decl.node, 0);
+                const fn_proto = try self.resolve(project, AstNode.init(node.context, call.ast.fn_expr), null);
+                const signature = try FunctionSignature.fromNode(self.allocator, fn_proto.node, 0);
                 defer signature.deinit();
                 const resolved = try self.resolve(project, signature.return_type_node, null);
                 switch (resolved.kind) {
                     .primitive => |prim| {
                         if (prim == PrimitiveType.type) {
-                            if (getReturnNode(fn_decl.node, true)) |type_type| {
+                            if (getReturnNode(fn_proto.node, true)) |type_type| {
                                 logger.err("getReturnNode => {}: {s}", .{ type_type.getTag(), type_type.getText() });
                                 return self.resolve(project, type_type, null);
-                            } else if (getReturnNode(fn_decl.node, false)) |type_type| {
+                            } else if (getReturnNode(fn_proto.node, false)) |type_type| {
                                 logger.err("getReturnNode => {}: {s}", .{ type_type.getTag(), type_type.getText() });
                                 return self.resolve(project, type_type, null);
                             } else {
@@ -266,8 +265,8 @@ pub fn resolve(self: *Self, project: Project, node: AstNode, param_token: ?AstTo
                     },
                     .fn_decl => {
                         return AstType{
-                            .node = node,
-                            .kind = .fn_decl,
+                            .node = AstNode.init(node.context, node.getData().lhs),
+                            .kind = .fn_proto,
                         };
                     },
                     .string_literal, .multiline_string_literal => {
