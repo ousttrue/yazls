@@ -303,7 +303,7 @@ pub fn resolve(self: *Self, project: Project, node: AstNode, param_token: ?AstTo
         for (self.path.items) |item, i| {
             std.debug.print("[{}]{}: {s}: {s}\n", .{ i, item.getTag(), item.context.path.slice(), item.getText() });
         }
-        unreachable;
+        return TypeCannotResolved;
     }
 }
 
