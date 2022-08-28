@@ -109,7 +109,10 @@ pub fn init(context: *const AstContext, token_index: u32) Self {
                 },
                 else => {},
             }
-            unreachable;
+            return Self{
+                .token_index = token_index,
+                .kind = .{ .unknown = node },
+            };
         },
         .structInit => |semantic_node| {
             if (semantic_node.index == node.index) {
@@ -144,7 +147,10 @@ pub fn init(context: *const AstContext, token_index: u32) Self {
                 else => {},
             }
 
-            unreachable;
+            return Self{
+                .token_index = token_index,
+                .kind = .{ .unknown = node },
+            };
         },
         .fnProto => |semantic_node| {
             switch (semantic_node.getChildren(&buf)) {
@@ -187,7 +193,10 @@ pub fn init(context: *const AstContext, token_index: u32) Self {
                 },
                 else => {},
             }
-            unreachable;
+            return Self{
+                .token_index = token_index,
+                .kind = .{ .unknown = node },
+            };
         },
         // call, field_access, identifier
         .blockVar => |semantic_node| {
