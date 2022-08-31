@@ -82,6 +82,15 @@ fn parseHex(c: u8) !u8 {
     };
 }
 
+pub fn exists(self: Self) bool {
+    if (std.fs.openFileAbsolute(self.slice(), .{})) |f| {
+        f.close();
+        return true;
+    } else |_| {
+        return false;
+    }
+}
+
 pub fn parseUri(self: *Self, str: []const u8) !void {
     if (str.len < 7 or !std.mem.eql(u8, "file://", str[0..7])) return error.UriBadScheme;
 

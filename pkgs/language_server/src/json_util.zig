@@ -59,7 +59,7 @@ pub fn allocToNotification(allocator: std.mem.Allocator, method: []const u8, not
     return buf.toOwnedSlice();
 }
 
-pub fn logJson(allocator: std.mem.ArenaAllocator, json: ?std.json.Value) void {
+pub fn logJson(allocator: std.mem.Allocator, json: ?std.json.Value) void {
     var json_buffer = std.ArrayList(u8).init(allocator);
     defer json_buffer.deinit();
     if (json) |value| {

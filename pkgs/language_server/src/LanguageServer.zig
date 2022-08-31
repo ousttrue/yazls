@@ -80,7 +80,7 @@ pub fn @"$/cancelRequest"(self: *Self, arena: *std.heap.ArenaAllocator, jsonPara
 /// # lifecycle
 /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
 pub fn initialize(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) ![]const u8 {
-    // logJson(arena, jsonParams);
+    // json_util.logJson(arena.allocator(), jsonParams);
 
     const params = try lsp.fromDynamicTree(arena, lsp.initialize.InitializeParams, jsonParams.?);
     for (params.capabilities.offsetEncoding.value) |encoding| {
@@ -132,9 +132,12 @@ pub fn initialize(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonPar
 
     if (params.workspaceFolders) |folders| {
         for (folders) |folder, i| {
-            logger.debug("[{}] {s}", .{ i, folder.uri });
-            const workspace = try Workspace.init(self.allocator, try FixedPath.fromUri(folder.uri), self.zigenv);
-            try self.workspaces.append(workspace);
+            logger.debug("[{}] {s}", .{ i, folder.uri });            
+            if (Workspace.fromUri(self.allocator, folder.uri, self.zigenv)) |workspace| {
+                try self.workspaces.append(workspace);
+            } else |err| {
+                logger.info("{}: {s}", .{err, folder.uri});
+            }
         }
     }
     if (self.workspaces.items.len == 0) {
