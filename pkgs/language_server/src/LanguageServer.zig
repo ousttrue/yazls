@@ -23,6 +23,8 @@ const Goto = @import("./Goto.zig");
 const Completion = @import("./Completion.zig");
 const Signature = @import("./Signature.zig");
 const hover = @import("./hover.zig");
+
+const rename = @import("./rename.zig");
 const json_util = @import("./json_util.zig");
 const logger = std.log.scoped(.LanguageServer);
 
@@ -132,11 +134,11 @@ pub fn initialize(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonPar
 
     if (params.workspaceFolders) |folders| {
         for (folders) |folder, i| {
-            logger.debug("[{}] {s}", .{ i, folder.uri });            
+            logger.debug("[{}] {s}", .{ i, folder.uri });
             if (Workspace.fromUri(self.allocator, folder.uri, self.zigenv)) |workspace| {
                 try self.workspaces.append(workspace);
             } else |err| {
-                logger.info("{}: {s}", .{err, folder.uri});
+                logger.info("{}: {s}", .{ err, folder.uri });
             }
         }
     }
@@ -521,51 +523,38 @@ pub fn @"textDocument/completion"(
     return json_util.allocToResponse(arena.allocator(), id, completions);
 }
 
-// // /// # language feature
-// // /// ## document position request
-// // /// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
-// // pub fn @"textDocument/rename"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) !lsp.Response {
-// //     var workspace = self.workspace orelse return error.WorkspaceNotInitialized;
-// //     const params = try lsp.fromDynamicTree(arena, lsp.requests.Rename, jsonParams.?);
-// //     const doc = self.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
-// //     const position = params.position;
-// //     const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
-// //     const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
-// //     const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
-// //         return lsp.Response.createNull(id);
-// //     };
+/// # language feature
+/// ## document position request
+/// * https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
+pub fn @"textDocument/rename"(self: *Self, arena: *std.heap.ArenaAllocator, id: i64, jsonParams: ?std.json.Value) ![]const u8 {
+    const params = try lsp.fromDynamicTree(arena, lsp.rename.RenameParams, jsonParams.?);
+    const workspace = self.workspaceFromUri(params.textDocument.uri);
+    const doc = workspace.store.get(try FixedPath.fromUri(params.textDocument.uri)) orelse return error.DocumentNotFound;
+    const position = params.position;
+    const line = try doc.utf8_buffer.getLine(@intCast(u32, position.line));
+    const byte_position = try line.getBytePosition(@intCast(u32, position.character), self.encoding);
+    const token = AstToken.fromBytePosition(&doc.ast_context.tree, byte_position) orelse {
+        // no token under cursor
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    };
+    if (token.getTag() != .identifier) {
+        // skip token that is not identifier
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    }
+    if (LiteralType.fromName(token.getText())) |_| {
+        // skip literal. null, true, false, undefined...
+        return json_util.allocToResponse(arena.allocator(), id, null);
+    }
 
-// //     if (try textdocument_position.getRename(arena, workspace, doc, token)) |locations| {
-// //         var changes = std.StringHashMap([]lsp.TextEdit).init(arena.allocator());
-// //         const allocator = arena.allocator();
-// //         for (locations) |location| {
-// //             const uri = try URI.fromPath(arena.allocator(), location.path.slice());
-// //             var text_edits = if (changes.get(uri)) |slice|
-// //                 std.ArrayList(lsp.TextEdit).fromOwnedSlice(allocator, slice)
-// //             else
-// //                 std.ArrayList(lsp.TextEdit).init(allocator);
+    const workspaceEdit = try rename.getEdit(
+        arena,
+        workspace.project(),
+        doc,
+        token,
+    );
 
-// //             var start = try doc.utf8_buffer.getPositionFromBytePosition(location.loc.start, self.encoding);
-// //             var end = try doc.utf8_buffer.getPositionFromBytePosition(location.loc.end, self.encoding);
-
-// //             (try text_edits.addOne()).* = .{
-// //                 .range = .{
-// //                     .start = .{ .line = start.line, .character = start.x },
-// //                     .end = .{ .line = end.line, .character = end.x },
-// //                 },
-// //                 .newText = params.newName,
-// //             };
-// //             try changes.put(uri, text_edits.toOwnedSlice());
-// //         }
-
-// //         return lsp.Response{
-// //             .id = id,
-// //             .result = .{ .WorkspaceEdit = .{ .changes = changes } },
-// //         };
-// //     } else {
-// //         return lsp.Response.createNull(id);
-// //     }
-// // }
+    return json_util.allocToResponse(arena.allocator(), id, workspaceEdit);
+}
 
 // // /// # language feature
 // // /// ## document position request

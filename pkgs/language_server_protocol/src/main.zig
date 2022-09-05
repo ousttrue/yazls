@@ -6,3 +6,4 @@ pub const diagnostic = @import("./diagnostic.zig");
 pub const document_symbol = @import("./document_symbol.zig");
 pub const completion = @import("./completion.zig");
 pub const signature_help = @import("./signature_help.zig");
+pub const rename = @import("./rename.zig");

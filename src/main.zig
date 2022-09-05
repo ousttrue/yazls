@@ -100,6 +100,9 @@ pub fn main() anyerror!void {
     // hover
     dispatcher.registerRequest(&language_server, "textDocument/hover");
     language_server.server_capabilities.hoverProvider = true;
+    // rename
+    dispatcher.registerRequest(&language_server, "textDocument/rename");
+    language_server.server_capabilities.renameProvider = true;
 
     jsonrpc.readloop(allocator, &transport, &dispatcher);
 }
