@@ -56,9 +56,10 @@ fn getZigLibAlloc(allocator: std.mem.Allocator, zig_exe_path: FixedPath) !FixedP
                     version: []const u8,
                 };
 
+                var stream = std.json.TokenStream.init(zig_env_result.stdout);
                 var json_env = std.json.parse(
                     Env,
-                    &std.json.TokenStream.init(zig_env_result.stdout),
+                    &stream,
                     .{ .allocator = allocator },
                 ) catch {
                     logger.err("Failed to parse zig env JSON result", .{});
