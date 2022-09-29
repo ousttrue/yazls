@@ -35,7 +35,7 @@ fn push(self: *Self, token_idx: u32, token: std.zig.Token) !void {
             try self.push_semantic_token(token.loc, .string, .{});
         },
         // number literal
-        .integer_literal, .float_literal => {
+        .number_literal => {
             try self.push_semantic_token(token.loc, .number, .{});
         },
         // identifier

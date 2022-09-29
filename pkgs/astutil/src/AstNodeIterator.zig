@@ -195,7 +195,7 @@ pub const NodeChildren = union(enum) {
             .fn_proto => .{ .fn_proto = tree.fnProto(idx) },
             .fn_decl => .{ .two = node_data },
             .anyframe_type => .{ .one = node_data.rhs },
-            .anyframe_literal, .char_literal, .integer_literal, .float_literal, .unreachable_literal, .identifier, .enum_literal, .string_literal, .multiline_string_literal => .none,
+            .anyframe_literal, .char_literal, .number_literal, .unreachable_literal, .identifier, .enum_literal, .string_literal, .multiline_string_literal => .none,
             .grouped_expression => .{ .one = node_data.lhs },
             .builtin_call_two, .builtin_call_two_comma, .builtin_call, .builtin_call_comma => .{ .builtin_call = BuiltinCall.init(tree, idx) },
             .error_set_decl => .none,

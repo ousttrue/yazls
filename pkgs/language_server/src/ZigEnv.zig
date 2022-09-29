@@ -54,6 +54,7 @@ fn getZigLibAlloc(allocator: std.mem.Allocator, zig_exe_path: FixedPath) !FixedP
                     std_dir: []const u8,
                     global_cache_dir: []const u8,
                     version: []const u8,
+                    target: []const u8,
                 };
 
                 var stream = std.json.TokenStream.init(zig_env_result.stdout);

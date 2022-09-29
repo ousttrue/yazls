@@ -23,7 +23,6 @@ pub fn getGoto(
     doc: *Document,
     token: AstToken,
 ) !?PathPosition {
-    _ = arena;
     const node = AstNode.fromTokenIndex(doc.ast_context, token.index);
 
     switch (token.getTag()) {
