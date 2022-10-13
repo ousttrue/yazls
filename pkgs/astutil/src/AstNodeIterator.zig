@@ -176,6 +176,8 @@ pub const NodeChildren = union(enum) {
             .@"switch", .switch_comma => .{ .@"switch" = Switch.init(tree, idx) },
             .switch_case_one => .{ .switch_case = tree.switchCaseOne(idx) },
             .switch_case => .{ .switch_case = tree.switchCase(idx) },
+            .switch_case_inline_one => .{ .switch_case = tree.switchCaseOne(idx) },
+            .switch_case_inline => .{ .switch_case = tree.switchCase(idx) },
             .switch_range => .{ .two = node_data },
             .while_simple => .{ .@"while" = tree.whileSimple(idx) },
             .while_cont => .{ .@"while" = tree.whileCont(idx) },
@@ -313,11 +315,9 @@ fn setIfNotZero(self: *Self, value: Ast.Node.Index) void {
 }
 
 fn addChildren(self: *Self, comptime T: type, t: T) void {
-    if(T==Ast.full.FnProto)
-    {
+    if (T == Ast.full.FnProto) {
         var it = t.iterator();
-        while(it.next())|param|
-        {
+        while (it.next()) |param| {
             self.setIfNotZero(param.type_expr);
         }
     }
