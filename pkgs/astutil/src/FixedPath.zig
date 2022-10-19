@@ -293,3 +293,14 @@ pub fn getName(self: Self) []const u8 {
         return self.slice();
     }
 }
+
+pub fn contains(self: Self, path: Self) bool {
+    var current = path;
+    while (current.parent()) |p| {
+        if (std.mem.eql(u8, self.slice(), p.slice())) {
+            return true;
+        }
+        current = p;
+    }
+    return false;
+}

@@ -1,7 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const astutil = @import("astutil");
-// const known_folders = @import("known-folders");
 const FixedPath = astutil.FixedPath;
 const ImportSolver = astutil.ImportSolver;
 const logger = std.log.scoped(.ZigEnv);
@@ -103,15 +102,12 @@ fn getZigBuiltinAlloc(
     return path;
 }
 
-fn getFullpath(dir: FixedPath, path: []const u8) FixedPath
-{
-    if(path[0] == '/' or path[0] == '\\')
-    {
+fn getFullpath(dir: FixedPath, path: []const u8) FixedPath {
+    if (path[0] == '/' or path[0] == '\\') {
         return FixedPath.fromFullpath(path);
     }
 
-    if(path[1] == ':')
-    {
+    if (path[1] == ':') {
         // maybe with windows drive letter
         return FixedPath.fromFullpath(path);
     }
@@ -257,6 +253,7 @@ pub fn initPackagesAndCImport(self: Self, allocator: std.mem.Allocator, import_s
     const zig_run_result = try self.runBuildRunner(allocator, root.child("build.zig"));
     defer allocator.free(zig_run_result);
 
+    // parse json
     var stream = std.json.TokenStream.init(zig_run_result);
     const options = std.json.ParseOptions{ .allocator = allocator, .ignore_unknown_fields = true };
     const project = try std.json.parse(Project, &stream, options);
@@ -264,6 +261,7 @@ pub fn initPackagesAndCImport(self: Self, allocator: std.mem.Allocator, import_s
 
     // packages
     for (project.packages) |pkg| {
+        logger.debug("Pkg(build.zig): '{s}' => {s}", .{ pkg.name, pkg.path });
         try import_solver.push(pkg.name, root.child(pkg.path));
     }
 

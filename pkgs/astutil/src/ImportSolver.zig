@@ -67,7 +67,15 @@ pub fn solve(self: Self, import_from: FixedPath, import: []const u8) ?FixedPath 
         if (self.pkg_path_map.get(text)) |found| {
             return found;
         } else {
-            logger.warn("pkg {s} not found", .{text});
+            var tmp = std.ArrayList(u8).init(self.allocator);
+            defer tmp.deinit();
+            var writer = tmp.writer();
+            writer.print("pkg '{s}' not found\n", .{text}) catch unreachable;
+            var it = self.pkg_path_map.iterator();
+            while (it.next()) |e| {
+                writer.print(", {s}", .{e.key_ptr.*}) catch unreachable;
+            }
+            logger.debug("{s}", .{tmp.items});
             return null;
         }
     }
