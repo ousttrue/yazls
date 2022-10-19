@@ -45,7 +45,7 @@ Windows11 の WSL2 ArchLinux 上で VSCode で開発中・・・
 | textDocument/codeLens            |     |       | 実験                                            |
 | codeLens/resolve                 |     |       | よくわからん                                    |
 | @import("builtin") サポート      | ✅   |       | 停止中・・・                                    |
-| @cImport                         | ✅   |       | @import("c") を translate-c の結果で置き換える  |
+| @cImport                         |     | ✅     | /c.zig 決め打ち                                 |
 | gyro.zzz から pkg マップをロード |     |       | build 時依存を解決                              |
 
 ## @cImport サポート
