@@ -12,9 +12,10 @@
             ]
         },
         {
+            // https://gist.github.com/floooh/31143278a0c0bae4f38b8722a8a98463
             "label": "test astutil",
             "type": "shell",
-            "command": "zig test pkgs/astutil/src/main.zig",
+            "command": "zig test -fstage1 -femit-bin=zig-out/bin/my-test pkgs/astutil/src/main.zig",
             "problemMatcher": [
                 "$gcc"
             ]

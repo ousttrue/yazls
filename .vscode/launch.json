@@ -11,6 +11,14 @@
             "target": "${workspaceFolder}/zig-out/bin/yazls",
             "cwd": "${workspaceRoot}",
             "valuesFormatting": "parseText"
-        }
+        },
+        {
+            "name": "test",
+            "type": "gdb",
+            "request": "launch",
+            "target": "${workspaceFolder}/zig-out/bin/my-test",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText"
+        },
     ]
 }

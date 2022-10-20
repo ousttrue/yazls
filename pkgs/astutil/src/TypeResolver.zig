@@ -319,8 +319,6 @@ test {
     const context = try AstContext.new(allocator, .{}, text, line_heads);
     defer context.delete();
 
-    std.debug.print("\n", .{});
-
     const mem = AstToken.init(&context.tree, 14);
     try std.testing.expectEqualStrings("eql", mem.getText());
     const node = AstNode.fromTokenIndex(context, mem.index);
@@ -334,14 +332,14 @@ test {
 
     var store = DocumentStore.init(allocator);
     defer store.deinit();
-    const project = Project.init(import_solver, &store);
     var resolver = init(allocator);
     defer resolver.deinit();
 
-    std.debug.print("node: {} '{s}'\n", .{ node.getTag(), node.getText() });
+    const project = Project.init(import_solver, &store);
+    // std.debug.print("node: {} '{s}'\n", .{ node.getTag(), node.getText() });
     const resolved = try resolver.resolve(project, node, mem);
     // for (resolver.path.items) |p, i| {
     //     std.debug.print("[{}] {s}: {s}\n", .{ i, p.context.path.slice(), p.getText() });
     // }
-    try std.testing.expectEqual(resolved.kind, .fn_decl);
+    try std.testing.expectEqual(resolved.kind, .fn_proto);
 }

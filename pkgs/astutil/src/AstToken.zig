@@ -111,5 +111,5 @@ test {
 
     try std.testing.expect(fromBytePosition(&tree, 3) == null);
 
-    std.debug.print("\n{}\n", .{token.getTag()});
+    // std.debug.print("\n{}\n", .{token.getTag()});
 }

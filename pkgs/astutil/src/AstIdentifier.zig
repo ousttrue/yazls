@@ -114,7 +114,7 @@ pub fn init(node: AstNode, token: ?AstToken) ?Self {
                 logger.err("token not found: {s} => {s}", .{ t.getText(), node.getText() });
                 return null;
             } else {
-                logger.err("no token: {s}", .{node.getText()});
+                // logger.err("no token: {s}", .{node.getText()});
                 return null;
             }
         },

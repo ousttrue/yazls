@@ -210,12 +210,9 @@ test "LinePosition" {
     ;
     const ls = try Self.init(std.testing.allocator, text);
     defer ls.deinit();
-    std.debug.print("\n", .{});
     try std.testing.expect((try ls.getLineIndexFromBytePosition(0)) == @as(usize, 0));
     try std.testing.expect((try ls.getLineIndexFromBytePosition(2)) == @as(usize, 1));
     try std.testing.expect((try ls.getLineIndexFromBytePosition(6)) == @as(usize, 3));
-    std.debug.print("\n", .{});
-
     try std.testing.expectEqual((try ls.getPositionFromBytePosition(0, .utf8)), .{ .line = 0, .x = 0 });
     try std.testing.expectEqual((try ls.getPositionFromBytePosition(7, .utf8)), .{ .line = 3, .x = 1 });
 }
@@ -230,7 +227,7 @@ test "multibyte" {
     ;
     const ls = try Self.init(std.testing.allocator, text);
     defer ls.deinit();
-    std.debug.print("\n", .{});
+    // std.debug.print("\n", .{});
     // あ
     try std.testing.expect((try ls.getLineIndexFromBytePosition(4)) == @as(usize, 1));
     try std.testing.expect((try ls.getLineIndexFromBytePosition(8)) == @as(usize, 2));
